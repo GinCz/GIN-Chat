@@ -3355,50 +3355,58 @@ body.light-theme .call-ctrl-btn {
 }
 
 /* ====================================================
-   VIEW MODE SELECTOR & MOBILE SCALING (v022)
+   VIEW MODE SELECTOR & AUTH HERO CONTROLS (v023)
    ==================================================== */
 
 .view-mode-selector {
   display: flex;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 12px;
-  padding: 4px;
-  margin-bottom: 20px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 14px;
+  padding: 5px;
+  margin-bottom: 22px;
   gap: 6px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 body.light-theme .view-mode-selector {
-  background: rgba(0, 0, 0, 0.05);
-  border-color: rgba(0, 0, 0, 0.1);
+  background: rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.12);
 }
 
 .view-mode-btn {
   flex: 1;
-  padding: 10px 12px;
+  padding: 12px 14px;
   border: none;
   background: transparent;
   color: var(--text-muted);
-  font-size: 13px;
-  font-weight: 600;
-  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  border-radius: 10px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
+  min-height: 48px;
+  box-sizing: border-box;
+}
+
+.view-mode-btn i {
+  font-size: 17px;
 }
 
 .view-mode-btn.active {
-  background: linear-gradient(135deg, var(--accent-color), #2094fa);
+  background: linear-gradient(135deg, #3390ec 0%, #2094fa 100%);
   color: #ffffff !important;
-  box-shadow: 0 4px 12px rgba(51, 144, 236, 0.4);
+  box-shadow: 0 4px 14px rgba(51, 144, 236, 0.45);
 }
 
 .view-mode-btn:hover:not(.active) {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.1);
   color: var(--text-primary);
 }
 
@@ -3419,7 +3427,7 @@ body.light-theme .view-mode-btn:hover:not(.active) {
   align-items: center;
   justify-content: center;
   gap: 14px;
-  padding: 14px 18px;
+  padding: 16px 20px;
   background: linear-gradient(135deg, #7928ca 0%, #a855f7 50%, #6366f1 100%);
   color: #ffffff !important;
   border: 1px solid rgba(255, 255, 255, 0.35);
@@ -3429,6 +3437,7 @@ body.light-theme .view-mode-btn:hover:not(.active) {
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   text-decoration: none;
   box-sizing: border-box;
+  min-height: 60px;
 }
 
 .btn-pwa-install-hero:hover {
@@ -3456,7 +3465,7 @@ body.light-theme .view-mode-btn:hover:not(.active) {
 }
 
 .btn-pwa-install-hero .pwa-btn-title {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
   line-height: 1.25;
   letter-spacing: 0.2px;
@@ -3464,8 +3473,8 @@ body.light-theme .view-mode-btn:hover:not(.active) {
 }
 
 .btn-pwa-install-hero .pwa-btn-sub {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.88);
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.9);
   margin-top: 3px;
   font-weight: 500;
 }
@@ -3473,6 +3482,79 @@ body.light-theme .view-mode-btn:hover:not(.active) {
 @keyframes pulseInstallHero {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.15); }
+}
+
+/* GITHUB DOCS GREEN BUTTON */
+.btn-docs-github {
+  width: 100%;
+  margin-top: 10px;
+  padding: 13px 18px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 12px;
+  font-size: 14.5px;
+  font-weight: 700;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.35);
+  box-sizing: border-box;
+  min-height: 50px;
+}
+
+.btn-docs-github:hover {
+  transform: translateY(-2px);
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  box-shadow: 0 6px 22px rgba(16, 185, 129, 0.55);
+  color: #ffffff !important;
+}
+
+/* PROMINENT BRAND SIGNATURE */
+.brand-signature {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #e2e8f0;
+  text-align: center;
+  letter-spacing: 0.5px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-sizing: border-box;
+  min-height: 46px;
+}
+
+.brand-signature:hover {
+  background: rgba(51, 144, 236, 0.2);
+  border-color: rgba(51, 144, 236, 0.5);
+  color: #60a5fa;
+  box-shadow: 0 4px 18px rgba(51, 144, 236, 0.35);
+  transform: translateY(-2px);
+}
+
+body.light-theme .brand-signature {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.12);
+  color: #334155;
+}
+
+body.light-theme .brand-signature:hover {
+  background: rgba(37, 99, 235, 0.12);
+  border-color: rgba(37, 99, 235, 0.35);
+  color: #2563eb;
 }
 
 /* PWA GUIDE MODAL */
@@ -3527,23 +3609,25 @@ body.light-theme .pwa-guide-step {
   line-height: 1.45;
 }
 
-/* MOBILE MODE SPECIFIC ENHANCEMENTS */
-.mobile-mode .auth-card,
-@media (max-width: 768px) {
+/* MOBILE RESPONSIVE SCALING */
+@media (max-width: 840px) {
   .auth-overlay {
-    padding: 12px;
+    padding: 12px !important;
+    align-items: center !important;
+    min-height: 100vh;
+    min-height: 100dvh;
   }
   .auth-card {
     padding: 24px 18px !important;
     border-radius: 20px !important;
     width: 100% !important;
     max-width: 480px !important;
-    margin: 8px auto !important;
+    margin: auto !important;
   }
   .auth-form .form-group input {
     font-size: 16px !important;
-    padding: 13px 14px !important;
-    min-height: 48px !important;
+    padding: 14px 14px !important;
+    min-height: 52px !important;
   }
   .btn-primary.btn-block {
     font-size: 16px !important;
@@ -3564,6 +3648,8 @@ body.light-theme .pwa-guide-step {
   .view-mode-btn {
     font-size: 14px !important;
     padding: 12px 14px !important;
+    min-height: 48px !important;
   }
 }
+
 

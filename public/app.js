@@ -39,30 +39,30 @@ function setViewMode(mode, save = true) {
   const btnDesktop = document.getElementById('btnModeDesktop');
   const menuModeText = document.getElementById('menuModeText');
 
-  if (mode === 'mobile') {
-    document.documentElement.classList.add('mobile-mode');
-    document.documentElement.classList.remove('desktop-mode-forced');
-    document.body.classList.add('mobile-mode');
-    document.body.classList.remove('desktop-mode-forced');
-    if (metaViewport) {
-      metaViewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
-    }
-    if (btnMobile) btnMobile.classList.add('active');
-    if (btnDesktop) btnDesktop.classList.remove('active');
-    if (menuModeText) menuModeText.textContent = 'Режим: Мобильный (Активен)';
-    if (save) localStorage.setItem('gin_view_mode', 'mobile');
-  } else {
-    document.documentElement.classList.remove('mobile-mode');
+  if (mode === 'desktop') {
     document.documentElement.classList.add('desktop-mode-forced');
-    document.body.classList.remove('mobile-mode');
+    document.documentElement.classList.remove('mobile-mode');
     document.body.classList.add('desktop-mode-forced');
+    document.body.classList.remove('mobile-mode');
     if (metaViewport) {
-      metaViewport.setAttribute('content', 'width=1200, initial-scale=0.35, user-scalable=yes');
+      metaViewport.setAttribute('content', 'width=1100, initial-scale=0.35, user-scalable=yes');
     }
     if (btnMobile) btnMobile.classList.remove('active');
     if (btnDesktop) btnDesktop.classList.add('active');
     if (menuModeText) menuModeText.textContent = 'Режим: ПК версия (Активен)';
     if (save) localStorage.setItem('gin_view_mode', 'desktop');
+  } else {
+    document.documentElement.classList.add('mobile-mode');
+    document.documentElement.classList.remove('desktop-mode-forced');
+    document.body.classList.add('mobile-mode');
+    document.body.classList.remove('desktop-mode-forced');
+    if (metaViewport) {
+      metaViewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover');
+    }
+    if (btnMobile) btnMobile.classList.add('active');
+    if (btnDesktop) btnDesktop.classList.remove('active');
+    if (menuModeText) menuModeText.textContent = 'Режим: Мобильный (Активен)';
+    if (save) localStorage.setItem('gin_view_mode', 'mobile');
   }
 }
 
@@ -72,12 +72,12 @@ function toggleDisplayMode() {
 }
 
 function initViewMode() {
+  const isMobileDevice = window.innerWidth <= 840 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   const saved = localStorage.getItem('gin_view_mode');
-  if (saved) {
-    setViewMode(saved, false);
+  if (saved === 'desktop' && !isMobileDevice) {
+    setViewMode('desktop', false);
   } else {
-    const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (window.innerWidth <= 768);
-    setViewMode(isMobileDevice ? 'mobile' : 'desktop', false);
+    setViewMode('mobile', false);
   }
 }
 
