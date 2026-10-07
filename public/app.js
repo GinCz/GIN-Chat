@@ -3423,12 +3423,7 @@ document.addEventListener('click', (e) => {
 });
 
 // ====================================================
-// WEBRTC P2P 1-ON-1 AUDIO & VIDEO CALL ENGINE
-// ====================================================
-let peerConnection = null;
-let localStream = null;
-// ====================================================
-// WEBRTC P2P 1-ON-1 AUDIO/VIDEO CALLS & LOUNGE MUSIC (v024)
+// WEBRTC P2P 1-ON-1 AUDIO/VIDEO CALLS & LOUNGE MUSIC (v025)
 // ====================================================
 let localStream = null;
 let remoteStream = null;
