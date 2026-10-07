@@ -1,6 +1,6 @@
 {
   "name": "gin-chat",
-  "version": "0.2.0",
+  "version": "0.2.2",
   "description": "Private Telegram-style encrypted chat with manual admin approval and group management",
   "main": "server.js",
   "scripts": {

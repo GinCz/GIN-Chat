@@ -3353,3 +3353,217 @@ body.light-theme .call-ctrl-btn {
   box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
   color: #ffffff !important;
 }
+
+/* ====================================================
+   VIEW MODE SELECTOR & MOBILE SCALING (v022)
+   ==================================================== */
+
+.view-mode-selector {
+  display: flex;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 4px;
+  margin-bottom: 20px;
+  gap: 6px;
+}
+
+body.light-theme .view-mode-selector {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+.view-mode-btn {
+  flex: 1;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+
+.view-mode-btn.active {
+  background: linear-gradient(135deg, var(--accent-color), #2094fa);
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(51, 144, 236, 0.4);
+}
+
+.view-mode-btn:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+body.light-theme .view-mode-btn:hover:not(.active) {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+/* HERO PWA INSTALL BUTTON (AUTH SCREEN) */
+.auth-pwa-banner {
+  margin-top: 16px;
+  margin-bottom: 8px;
+  width: 100%;
+}
+
+.btn-pwa-install-hero {
+  width: 100%;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 14px 18px;
+  background: linear-gradient(135deg, #7928ca 0%, #a855f7 50%, #6366f1 100%);
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 14px;
+  box-shadow: 0 6px 22px rgba(168, 85, 247, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.btn-pwa-install-hero:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(168, 85, 247, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.btn-pwa-install-hero:active {
+  transform: scale(0.98);
+}
+
+.btn-pwa-install-hero .pwa-btn-icon {
+  font-size: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: pulseInstallHero 2.2s infinite ease-in-out;
+}
+
+.btn-pwa-install-hero .pwa-btn-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.btn-pwa-install-hero .pwa-btn-title {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: 0.2px;
+  color: #ffffff;
+}
+
+.btn-pwa-install-hero .pwa-btn-sub {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.88);
+  margin-top: 3px;
+  font-weight: 500;
+}
+
+@keyframes pulseInstallHero {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+
+/* PWA GUIDE MODAL */
+.pwa-guide-card {
+  max-width: 480px;
+  width: 95%;
+}
+
+.pwa-intro {
+  margin-bottom: 16px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.pwa-guide-step {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  margin-bottom: 12px;
+  text-align: left;
+}
+
+body.light-theme .pwa-guide-step {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+.pwa-guide-step .step-icon {
+  font-size: 26px;
+  min-width: 32px;
+  padding-top: 2px;
+  display: flex;
+  justify-content: center;
+}
+
+.pwa-guide-step strong {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 4px;
+  color: var(--text-primary);
+}
+
+.pwa-guide-step p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+/* MOBILE MODE SPECIFIC ENHANCEMENTS */
+.mobile-mode .auth-card,
+@media (max-width: 768px) {
+  .auth-overlay {
+    padding: 12px;
+  }
+  .auth-card {
+    padding: 24px 18px !important;
+    border-radius: 20px !important;
+    width: 100% !important;
+    max-width: 480px !important;
+    margin: 8px auto !important;
+  }
+  .auth-form .form-group input {
+    font-size: 16px !important;
+    padding: 13px 14px !important;
+    min-height: 48px !important;
+  }
+  .btn-primary.btn-block {
+    font-size: 16px !important;
+    padding: 14px 18px !important;
+    min-height: 52px !important;
+    font-weight: 700 !important;
+  }
+  .btn-pwa-install-hero {
+    padding: 16px 20px !important;
+    min-height: 60px !important;
+  }
+  .btn-pwa-install-hero .pwa-btn-title {
+    font-size: 16px !important;
+  }
+  .btn-pwa-install-hero .pwa-btn-sub {
+    font-size: 12px !important;
+  }
+  .view-mode-btn {
+    font-size: 14px !important;
+    padding: 12px 14px !important;
+  }
+}
+

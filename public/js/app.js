@@ -32,8 +32,62 @@ try {
   }
 } catch(e) {}
 
+// View Mode Handler (Mobile / Desktop View)
+function setViewMode(mode, save = true) {
+  const metaViewport = document.querySelector('meta[name="viewport"]');
+  const btnMobile = document.getElementById('btnModeMobile');
+  const btnDesktop = document.getElementById('btnModeDesktop');
+  const menuModeText = document.getElementById('menuModeText');
+
+  if (mode === 'mobile') {
+    document.documentElement.classList.add('mobile-mode');
+    document.documentElement.classList.remove('desktop-mode-forced');
+    document.body.classList.add('mobile-mode');
+    document.body.classList.remove('desktop-mode-forced');
+    if (metaViewport) {
+      metaViewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+    }
+    if (btnMobile) btnMobile.classList.add('active');
+    if (btnDesktop) btnDesktop.classList.remove('active');
+    if (menuModeText) menuModeText.textContent = 'Режим: Мобильный (Активен)';
+    if (save) localStorage.setItem('gin_view_mode', 'mobile');
+  } else {
+    document.documentElement.classList.remove('mobile-mode');
+    document.documentElement.classList.add('desktop-mode-forced');
+    document.body.classList.remove('mobile-mode');
+    document.body.classList.add('desktop-mode-forced');
+    if (metaViewport) {
+      metaViewport.setAttribute('content', 'width=1200, initial-scale=0.35, user-scalable=yes');
+    }
+    if (btnMobile) btnMobile.classList.remove('active');
+    if (btnDesktop) btnDesktop.classList.add('active');
+    if (menuModeText) menuModeText.textContent = 'Режим: ПК версия (Активен)';
+    if (save) localStorage.setItem('gin_view_mode', 'desktop');
+  }
+}
+
+function toggleDisplayMode() {
+  const isCurrentlyMobile = document.body.classList.contains('mobile-mode') || !document.body.classList.contains('desktop-mode-forced');
+  setViewMode(isCurrentlyMobile ? 'desktop' : 'mobile', true);
+}
+
+function initViewMode() {
+  const saved = localStorage.getItem('gin_view_mode');
+  if (saved) {
+    setViewMode(saved, false);
+  } else {
+    const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (window.innerWidth <= 768);
+    setViewMode(isMobileDevice ? 'mobile' : 'desktop', false);
+  }
+}
+
+try {
+  initViewMode();
+} catch(e) {}
+
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
+  initViewMode();
   if (token) {
     fetchMe();
   } else {
@@ -379,6 +433,7 @@ function connectSocket() {
   });
 
   socket.on('user_approved', () => {
+    loadChats();
     if (currentUser && (currentUser.role === 'superadmin' || currentUser.role === 'admin')) {
       checkPendingUsersCount();
       loadAdminData();
@@ -466,7 +521,13 @@ function renderChatsList() {
   container.innerHTML = filtered.map(chat => {
     const isActive = activeChat && activeChat.id === chat.id;
     const timeStr = chat.lastMessage ? formatTime(chat.lastMessage.created_at) : '';
-    const preview = chat.lastMessage ? escapeHtml(chat.lastMessage.text) : 'Нет сообщений';
+    const isDirect = chat.type === 'direct';
+    let preview = 'Нет сообщений';
+    if (chat.lastMessage) {
+      preview = escapeHtml(chat.lastMessage.text);
+    } else if (isDirect && chat.partner && chat.partner.username) {
+      preview = `@${escapeHtml(chat.partner.username)}`;
+    }
     const unreadBadge = chat.unreadCount > 0 ? `<div class="unread-badge">${chat.unreadCount}</div>` : '';
     const displayName = chat.name || (chat.partner ? chat.partner.name : 'Личный диалог');
 
@@ -3731,4 +3792,33 @@ function cleanUpCall() {
   currentCallPeerId = null;
   pendingIncomingCallData = null;
   closeModal('callModal');
+}
+
+
+async function leaveCurrentGroup() {
+  if (!activeChat || activeChat.type !== 'group') return;
+  const groupName = activeChat.name || 'группу';
+  if (!confirm(`Вы действительно хотите покинуть группу «${groupName}»?\n\nВы больше не будете состоять в ней и не будете получать уведомления о новых участниках и сообщениях.`)) {
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/chats/${activeChat.id}/members/${currentUser.id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const data = await res.json();
+    if (res.ok) {
+      closeModal('chatDetailsModal');
+      activeChat = null;
+      showToast(`Вы покинули группу «${groupName}»`);
+      await loadChats();
+      document.getElementById('emptyChatState').classList.remove('hidden');
+      document.getElementById('activeChatState').classList.add('hidden');
+    } else {
+      alert(data.error || 'Ошибка при выходе из группы');
+    }
+  } catch (err) {
+    alert('Сетевая ошибка при выходе из группы');
+  }
 }
