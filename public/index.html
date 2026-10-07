@@ -108,7 +108,7 @@
           <a href="https://github.com/GinCz/GIN-Chat" target="_blank" rel="noopener noreferrer" class="btn-docs-github" title="Подробное описание работы GIN-Chat на GitHub ↗">
             <i class="fa-brands fa-github"></i> Подробное описание работы чата ↗
           </a>
-          <a href="https://github.com/GinCz/GIN-Chat" target="_blank" rel="noopener" class="brand-signature" title="GIN-Chat на GitHub (GinCz) ↗">VladiMIR+AI &nbsp;|||&nbsp; v027 ↗</a>
+          <a href="https://github.com/GinCz/GIN-Chat" target="_blank" rel="noopener" class="brand-signature" title="GIN-Chat на GitHub (GinCz) ↗">VladiMIR+AI &nbsp;|||&nbsp; v028 ↗</a>
         </div>
       </div>
     </div>
@@ -146,7 +146,7 @@
           <button class="menu-item" onclick="toggleDisplayMode()"><i class="fa-solid fa-mobile-screen text-primary"></i> <span id="menuModeText">Режим: Мобильный / ПК</span></button>
           <button class="menu-item" onclick="openWallpaperModal()"><i class="fa-solid fa-image text-primary"></i> Фон чата (Обои)</button>
           <button class="menu-item" id="pwaMenuInstallBtn" onclick="installPWA()"><i class="fa-solid fa-download text-primary"></i> Установить приложение</button>
-          <button class="menu-item" onclick="openAboutModal()"><i class="fa-solid fa-circle-info text-primary"></i> О приложении (v027)</button>
+          <button class="menu-item" onclick="openAboutModal()"><i class="fa-solid fa-circle-info text-primary"></i> О приложении (v028)</button>
           <a href="https://github.com/GinCz/GIN-Chat" target="_blank" rel="noopener" class="menu-item"><i class="fa-brands fa-github"></i> Описание функций ↗</a>
           <hr class="menu-divider">
           <button class="menu-item text-danger" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Выйти</button>
@@ -174,7 +174,7 @@
         <button id="pwaInstallBtn" class="btn-sidebar-pwa" onclick="installPWA()">
           <i class="fa-solid fa-download"></i> Установить приложение
         </button>
-        <a href="https://github.com/GinCz/GIN-Chat" target="_blank" rel="noopener" class="brand-signature" title="GIN-Chat на GitHub (GinCz) ↗">VladiMIR+AI &nbsp;|||&nbsp; v027 ↗</a>
+        <a href="https://github.com/GinCz/GIN-Chat" target="_blank" rel="noopener" class="brand-signature" title="GIN-Chat на GitHub (GinCz) ↗">VladiMIR+AI &nbsp;|||&nbsp; v028 ↗</a>
 
         <!-- Floating Action Button for New Chat -->
         <div class="fab-wrapper">
@@ -664,30 +664,30 @@
               </div>
             </div>
 
-            <!-- Action Buttons Grid -->
+            <!-- Action Buttons Grid (Трубочка, Камера, Сменить фон, Ссылка) -->
             <div class="direct-actions-grid">
-              <button type="button" class="direct-action-card action-call" onclick="startDirectCallFromDetails('audio')">
+              <button type="button" class="direct-action-card action-call" onclick="startDirectCallFromDetails('audio')" title="Позвонить (Трубочка)">
                 <div class="action-icon"><i class="fa-solid fa-phone"></i></div>
                 <div class="action-text">
-                  <span class="action-title">Аудиозвонок</span>
-                  <span class="action-sub">P2P Защищено</span>
+                  <span class="action-title">Позвонить</span>
+                  <span class="action-sub">Аудиосвязь P2P</span>
                 </div>
               </button>
-              <button type="button" class="direct-action-card action-video" onclick="startDirectCallFromDetails('video')">
+              <button type="button" class="direct-action-card action-video" onclick="startDirectCallFromDetails('video')" title="Видеозвонок (Камера)">
                 <div class="action-icon"><i class="fa-solid fa-video"></i></div>
                 <div class="action-text">
-                  <span class="action-title">Видеозвонок</span>
-                  <span class="action-sub">HD E2EE</span>
+                  <span class="action-title">Камера</span>
+                  <span class="action-sub">Видеозвонок HD</span>
                 </div>
               </button>
-              <button type="button" class="direct-action-card action-wallpaper" onclick="openWallpaperFromDetails()">
+              <button type="button" class="direct-action-card action-wallpaper" onclick="openWallpaperFromDetails()" title="Сменить фон">
                 <div class="action-icon"><i class="fa-solid fa-image"></i></div>
                 <div class="action-text">
-                  <span class="action-title">Фон диалога</span>
-                  <span class="action-sub">Обои чата</span>
+                  <span class="action-title">Сменить фон</span>
+                  <span class="action-sub">Обои диалога</span>
                 </div>
               </button>
-              <button type="button" class="direct-action-card action-copy" onclick="copyDirectContactLink()">
+              <button type="button" class="direct-action-card action-copy" onclick="copyDirectContactLink()" title="Скопировать ссылку на диалог">
                 <div class="action-icon"><i class="fa-solid fa-link"></i></div>
                 <div class="action-text">
                   <span class="action-title">Ссылка на чат</span>
@@ -698,6 +698,14 @@
 
             <!-- Contact Bio / Status Information -->
             <div class="direct-profile-info-list" id="directProfileInfoList"></div>
+
+            <!-- Common Groups with this Contact -->
+            <div class="direct-common-groups-section" id="directCommonGroupsSection" style="margin-top: 14px;">
+              <div style="font-size: 13px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
+                <span><i class="fa-solid fa-users text-primary"></i> Общие группы (<span id="directCommonGroupsCount">0</span>)</span>
+              </div>
+              <div class="direct-common-groups-list" id="directCommonGroupsList" style="display: flex; flex-direction: column; gap: 6px;"></div>
+            </div>
           </div>
 
           <!-- 2. GROUP MANAGEMENT BLOCK -->
@@ -1021,7 +1029,7 @@
             <img src="/favicon.svg" alt="Ninja Logo" style="width: 72px; height: 72px; filter: drop-shadow(0 4px 12px rgba(168, 85, 247, 0.5));">
           </div>
           <h2 style="font-weight: 800; font-size: 22px; margin-bottom: 4px;">GIN-Chat</h2>
-          <div class="badge badge-primary" style="display: inline-block; margin-bottom: 16px; padding: 4px 12px; font-size: 13px; font-weight: 700; border-radius: 20px;">Версия: v027 (0.2.7)</div>
+          <div class="badge badge-primary" style="display: inline-block; margin-bottom: 16px; padding: 4px 12px; font-size: 13px; font-weight: 700; border-radius: 20px;">Версия: v028 (0.2.8)</div>
           <p style="color: var(--text-muted); font-size: 14px; line-height: 1.5; margin-bottom: 16px;">
             Автономный защищенный мессенджер со сквозным шифрованием <strong>AES-256-GCM</strong> и поддержкой PWA.
           </p>
@@ -1032,7 +1040,7 @@
             </div>
             <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.08);">
               <span style="color: var(--text-muted);">Сборка:</span>
-              <span>Release v027 • PWA Standalone</span>
+              <span>Release v028 • PWA Standalone</span>
             </div>
             <div style="display: flex; justify-content: space-between; padding: 6px 0;">
               <span style="color: var(--text-muted);">Шифрование:</span>

@@ -557,7 +557,13 @@ async function selectChat(chatId) {
     const data = await res.json();
     if (!res.ok) return;
 
-    activeChat = { ...data.chat, members: data.members, myRole: data.myRole, pinnedMessage: data.pinnedMessage };
+    activeChat = { 
+      ...data.chat, 
+      members: data.members, 
+      myRole: data.myRole, 
+      pinnedMessage: data.pinnedMessage,
+      commonGroups: data.commonGroups || []
+    };
 
     if (socket) {
       socket.emit('join_chat', { chatId });
@@ -2314,6 +2320,30 @@ function openChatDetailsModal() {
         </div>
       `;
       infoList.innerHTML = rows;
+    }
+
+    // Common Groups Rendering
+    const commonGroupsList = document.getElementById('directCommonGroupsList');
+    const commonGroupsCount = document.getElementById('directCommonGroupsCount');
+    const commonGroups = activeChat.commonGroups || [];
+    if (commonGroupsCount) commonGroupsCount.innerText = commonGroups.length;
+    if (commonGroupsList) {
+      if (commonGroups.length > 0) {
+        commonGroupsList.innerHTML = commonGroups.map(g => `
+          <div class="common-group-item" onclick="closeModal('chatDetailsModal'); selectChat(${g.id});" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 10px; cursor: pointer; transition: all 0.2s ease;">
+            <div style="display: flex; align-items: center; gap: 10px; min-width: 0;">
+              ${renderAvatar(g.avatar, g.name, 'avatar-sm')}
+              <div style="min-width: 0;">
+                <div style="font-weight: 700; font-size: 13px; color: var(--text-main);">${escapeHtml(g.name)}</div>
+                <div style="font-size: 11.5px; color: var(--text-muted);">${g.member_count || 1} участников</div>
+              </div>
+            </div>
+            <i class="fa-solid fa-chevron-right text-muted" style="font-size: 12px;"></i>
+          </div>
+        `).join('');
+      } else {
+        commonGroupsList.innerHTML = '<div style="font-size: 12px; color: var(--text-muted); padding: 4px 0;">Нет общих групп с этим контактом</div>';
+      }
     }
   }
 

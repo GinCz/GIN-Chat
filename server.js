@@ -920,14 +920,15 @@ app.get('/api/chats/:id', authMiddleware, (req, res) => {
   if (!chat) return res.status(404).json({ error: 'Чат не найден' });
 
   let enrichedChat = { ...chat };
+  let commonGroups = [];
   if (chat.type === 'direct') {
     const otherMember = db.prepare(`
-      SELECT u.id, u.name, u.username, u.avatar, u.last_seen
+      SELECT u.id, u.name, u.username, u.avatar, u.last_seen, u.bio, u.role
       FROM chat_members cm
       JOIN users u ON cm.user_id = u.id
       WHERE cm.chat_id = ? AND cm.user_id != ?
     `).get(chatId, userId) || db.prepare(`
-      SELECT u.id, u.name, u.username, u.avatar, u.last_seen
+      SELECT u.id, u.name, u.username, u.avatar, u.last_seen, u.bio, u.role
       FROM chat_members cm
       JOIN users u ON cm.user_id = u.id
       WHERE cm.chat_id = ?
@@ -937,6 +938,16 @@ app.get('/api/chats/:id', authMiddleware, (req, res) => {
       enrichedChat.name = otherMember.name;
       enrichedChat.avatar = otherMember.avatar;
       enrichedChat.partner = otherMember;
+
+      commonGroups = db.prepare(`
+        SELECT c.id, c.name, c.avatar,
+               (SELECT COUNT(*) FROM chat_members WHERE chat_id = c.id) as member_count
+        FROM chats c
+        JOIN chat_members cm1 ON c.id = cm1.chat_id AND cm1.user_id = ?
+        JOIN chat_members cm2 ON c.id = cm2.chat_id AND cm2.user_id = ?
+        WHERE c.type = 'group'
+        ORDER BY c.name ASC
+      `).all(userId, otherMember.id);
     } else {
       enrichedChat.name = 'Личный диалог';
     }
@@ -970,7 +981,8 @@ app.get('/api/chats/:id', authMiddleware, (req, res) => {
     chat: enrichedChat,
     myRole: memberRecord ? memberRecord.role : 'superadmin',
     members,
-    pinnedMessage
+    pinnedMessage,
+    commonGroups
   });
 });
 
@@ -1906,6 +1918,6 @@ app.get('*', (req, res) => {
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 GIN-Chat running on http://0.0.0.0:${PORT}`);
   const domainUrl = (process.env.APP_URL || '4at.gincz.com').replace(/^https?:\/\/(www\.)?/, '').replace(/\/+$/, '');
-  sendTelegramNotification(`🚀 <b>GIN-Chat сервер v027 запущен:</b>\n${domainUrl}`);
+  sendTelegramNotification(`🚀 <b>GIN-Chat сервер v028 запущен:</b>\n${domainUrl}`);
   pollTelegramUpdates();
 });
