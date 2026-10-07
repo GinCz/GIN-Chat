@@ -3618,6 +3618,53 @@ function stopCallTone() {
   }
 }
 
+// Resilient media acquisition helper with multi-tier fallback
+async function acquireUserMedia(requestedType = 'audio') {
+  const audioConstraints = {
+    echoCancellation: true,
+    noiseSuppression: true,
+    autoGainControl: true
+  };
+
+  if (requestedType === 'video') {
+    // Tier 1: Flexible video + audio
+    try {
+      return await navigator.mediaDevices.getUserMedia({
+        audio: audioConstraints,
+        video: {
+          facingMode: isFrontCamera ? 'user' : 'environment',
+          width: { ideal: 1280, min: 320 },
+          height: { ideal: 720, min: 240 }
+        }
+      });
+    } catch (vidErr1) {
+      console.warn('Strict video getUserMedia failed, trying minimal video: true...', vidErr1);
+      try {
+        // Tier 2: Minimal video constraint
+        return await navigator.mediaDevices.getUserMedia({
+          audio: audioConstraints,
+          video: true
+        });
+      } catch (vidErr2) {
+        console.warn('Video acquisition failed, falling back to audio-only...', vidErr2);
+        // Tier 3: Graceful audio-only fallback
+        const audioStream = await navigator.mediaDevices.getUserMedia({
+          audio: audioConstraints,
+          video: false
+        });
+        showToast('Камера недоступна (занята или нет доступа). Звонок переведён в голосовой режим', 'warning');
+        return audioStream;
+      }
+    }
+  } else {
+    // Audio-only
+    return await navigator.mediaDevices.getUserMedia({
+      audio: audioConstraints,
+      video: false
+    });
+  }
+}
+
 // Flush all queued ICE candidates once remote description is set
 async function processPendingIceCandidates() {
   if (!peerConnection || !peerConnection.remoteDescription || !peerConnection.remoteDescription.type) return;
@@ -3654,18 +3701,21 @@ async function startDirectCall(type = 'audio') {
   playCallTone('dialing');
 
   try {
-    localStream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-      video: type === 'video' ? { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } } : false
-    });
+    localStream = await acquireUserMedia(type);
+    const hasVideo = localStream.getVideoTracks().length > 0;
 
-    if (type === 'video') {
+    if (hasVideo) {
       const localVid = document.getElementById('localVideo');
       if (localVid) {
         localVid.srcObject = localStream;
+        localVid.muted = true;
         localVid.play().catch(() => {});
       }
       document.getElementById('callVideoContainer').classList.remove('hidden');
+    } else {
+      document.getElementById('callVideoContainer').classList.add('hidden');
+      document.getElementById('callToggleCamBtn').classList.add('hidden');
+      document.getElementById('callSwitchCamBtn').classList.add('hidden');
     }
 
     createPeerConnection();
@@ -3676,13 +3726,13 @@ async function startDirectCall(type = 'audio') {
 
     const offer = await peerConnection.createOffer({
       offerToReceiveAudio: true,
-      offerToReceiveVideo: type === 'video'
+      offerToReceiveVideo: true
     });
     await peerConnection.setLocalDescription(offer);
 
     socket.emit('call_start', {
       toUserId: currentCallPeerId,
-      type,
+      type: hasVideo ? 'video' : 'audio',
       offer,
       chatId: activeChat.id
     });
@@ -3690,7 +3740,7 @@ async function startDirectCall(type = 'audio') {
     console.error('Call media error:', err);
     stopCallTone();
     closeModal('callModal');
-    showToast('Разрешите доступ к микрофону / камере для звонка', 'error');
+    showToast('Не удалось получить доступ к микрофону. Разрешите доступ в настройках браузера.', 'error');
   }
 }
 
@@ -3721,18 +3771,22 @@ async function acceptIncomingCall() {
   document.getElementById('callStatusText').innerText = 'Подключение...';
 
   try {
-    localStream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-      video: currentCallType === 'video' ? { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } } : false
-    });
+    localStream = await acquireUserMedia(currentCallType);
+    const hasVideo = localStream.getVideoTracks().length > 0;
 
-    if (currentCallType === 'video') {
+    if (hasVideo) {
       const localVid = document.getElementById('localVideo');
       if (localVid) {
         localVid.srcObject = localStream;
+        localVid.muted = true;
         localVid.play().catch(() => {});
       }
       document.getElementById('callVideoContainer').classList.remove('hidden');
+      document.getElementById('callToggleCamBtn').classList.remove('hidden');
+      document.getElementById('callSwitchCamBtn').classList.remove('hidden');
+    } else {
+      document.getElementById('callToggleCamBtn').classList.add('hidden');
+      document.getElementById('callSwitchCamBtn').classList.add('hidden');
     }
 
     createPeerConnection();
@@ -3756,7 +3810,7 @@ async function acceptIncomingCall() {
   } catch (err) {
     console.error('Accept call error:', err);
     endCall();
-    showToast('Ошибка при подключении звонка: разрешите микрофон', 'error');
+    showToast('Ошибка подключения звонка: разрешите микрофон', 'error');
   }
 }
 
@@ -3923,14 +3977,50 @@ function toggleCallMic() {
   }
 }
 
-function toggleCallCam() {
-  if (localStream) {
-    const videoTrack = localStream.getVideoTracks()[0];
-    if (videoTrack) {
-      videoTrack.enabled = !videoTrack.enabled;
-      const btn = document.getElementById('callToggleCamBtn');
-      btn.classList.toggle('active-off', !videoTrack.enabled);
-      btn.innerHTML = videoTrack.enabled ? '<i class="fa-solid fa-video"></i>' : '<i class="fa-solid fa-video-slash"></i>';
+async function toggleCallCam() {
+  if (!localStream) return;
+  let videoTrack = localStream.getVideoTracks()[0];
+  const btn = document.getElementById('callToggleCamBtn');
+
+  if (videoTrack) {
+    videoTrack.enabled = !videoTrack.enabled;
+    btn.classList.toggle('active-off', !videoTrack.enabled);
+    btn.innerHTML = videoTrack.enabled ? '<i class="fa-solid fa-video"></i>' : '<i class="fa-solid fa-video-slash"></i>';
+  } else {
+    try {
+      const camStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: isFrontCamera ? 'user' : 'environment',
+          width: { ideal: 1280, min: 320 },
+          height: { ideal: 720, min: 240 }
+        }
+      });
+      videoTrack = camStream.getVideoTracks()[0];
+      if (videoTrack) {
+        localStream.addTrack(videoTrack);
+        const localVid = document.getElementById('localVideo');
+        if (localVid) {
+          localVid.srcObject = localStream;
+          localVid.muted = true;
+          localVid.play().catch(() => {});
+        }
+        document.getElementById('callVideoContainer').classList.remove('hidden');
+        document.getElementById('callSwitchCamBtn').classList.remove('hidden');
+        btn.classList.remove('active-off');
+        btn.innerHTML = '<i class="fa-solid fa-video"></i>';
+
+        if (peerConnection) {
+          const sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+          if (sender) {
+            await sender.replaceTrack(videoTrack);
+          } else {
+            peerConnection.addTrack(videoTrack, localStream);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to enable camera on-the-fly:', e);
+      showToast('Не удалось получить доступ к камере', 'warning');
     }
   }
 }
@@ -3946,21 +4036,35 @@ async function switchCallCamera() {
 
   try {
     const newStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: isFrontCamera ? 'user' : 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+      video: {
+        facingMode: isFrontCamera ? 'user' : 'environment',
+        width: { ideal: 1280, min: 320 },
+        height: { ideal: 720, min: 240 }
+      }
     });
     const newTrack = newStream.getVideoTracks()[0];
-    localStream.addTrack(newTrack);
-    const localVid = document.getElementById('localVideo');
-    if (localVid) {
-      localVid.srcObject = localStream;
-      localVid.play().catch(() => {});
-    }
+    if (newTrack) {
+      localStream.addTrack(newTrack);
+      const localVid = document.getElementById('localVideo');
+      if (localVid) {
+        localVid.srcObject = localStream;
+        localVid.muted = true;
+        localVid.play().catch(() => {});
+      }
 
-    if (peerConnection) {
-      const sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
-      if (sender) sender.replaceTrack(newTrack);
+      if (peerConnection) {
+        const sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+        if (sender) {
+          await sender.replaceTrack(newTrack);
+        } else {
+          peerConnection.addTrack(newTrack, localStream);
+        }
+      }
     }
-  } catch (e) {}
+  } catch (e) {
+    console.warn('Failed to switch camera:', e);
+    showToast('Не удалось переключить камеру', 'warning');
+  }
 }
 
 function endCall() {
