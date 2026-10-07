@@ -1109,11 +1109,16 @@ app.post('/api/chats/:id/join', authMiddleware, (req, res) => {
       });
     });
 
-    sendTelegramNotification(
-      `🔔 <b>Новый участник в группе «${escapeTgHtml(chat.name)}»:</b>\n` +
-      `👤 <b>Имя:</b> ${escapeTgHtml(req.user.name)} (@${escapeTgHtml(req.user.username)})\n` +
-      `Все администраторы группы оповещены.`
-    );
+    // Notify group admins
+    const groupAdminIds = groupAdmins.map(a => a.user_id);
+    const superAdmin = db.prepare("SELECT id FROM users WHERE role = 'superadmin'").get();
+    if (superAdmin && groupAdminIds.includes(superAdmin.id)) {
+      sendTelegramNotification(
+        `🔔 <b>Новый участник в группе «${escapeTgHtml(chat.name)}»:</b>\n` +
+        `👤 <b>Имя:</b> ${escapeTgHtml(req.user.name)} (@${escapeTgHtml(req.user.username)})\n` +
+        `Все администраторы группы оповещены.`
+      );
+    }
   }
 
   res.json({ success: true, chatId: Number(chatId), name: chat.name });
@@ -1151,11 +1156,16 @@ app.post('/api/chats/join/:code', authMiddleware, (req, res) => {
       });
     });
 
-    sendTelegramNotification(
-      `🔔 <b>Новый участник в группе «${escapeTgHtml(chat.name)}»:</b>\n` +
-      `👤 <b>Имя:</b> ${escapeTgHtml(req.user.name)} (@${escapeTgHtml(req.user.username)})\n` +
-      `Все администраторы группы оповещены.`
-    );
+    // Notify group admins
+    const groupAdminIds = groupAdmins.map(a => a.user_id);
+    const superAdmin = db.prepare("SELECT id FROM users WHERE role = 'superadmin'").get();
+    if (superAdmin && groupAdminIds.includes(superAdmin.id)) {
+      sendTelegramNotification(
+        `🔔 <b>Новый участник в группе «${escapeTgHtml(chat.name)}»:</b>\n` +
+        `👤 <b>Имя:</b> ${escapeTgHtml(req.user.name)} (@${escapeTgHtml(req.user.username)})\n` +
+        `Все администраторы группы оповещены.`
+      );
+    }
   }
 
   res.json({ success: true, chatId: chat.id, name: chat.name });
@@ -1895,6 +1905,6 @@ app.get('*', (req, res) => {
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 GIN-Chat running on http://0.0.0.0:${PORT}`);
-  sendTelegramNotification('🚀 <b>GIN-Chat сервер v020 запущен:</b>\n' + (process.env.APP_URL || 'https://www.chat-xxxxxx.ru') + '');
+  sendTelegramNotification('🚀 <b>GIN-Chat сервер v021 запущен:</b>\n' + (process.env.APP_URL || 'https://www.chat-xxxxxx.ru') + '');
   pollTelegramUpdates();
 });

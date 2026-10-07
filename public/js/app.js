@@ -3739,3 +3739,32 @@ function cleanUpCall() {
   pendingIncomingCallData = null;
   closeModal('callModal');
 }
+
+
+async function leaveCurrentGroup() {
+  if (!activeChat || activeChat.type !== 'group') return;
+  const groupName = activeChat.name || 'группу';
+  if (!confirm(`Вы действительно хотите покинуть группу «${groupName}»?\n\nВы больше не будете состоять в ней и не будете получать уведомления о новых участниках и сообщениях.`)) {
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/chats/${activeChat.id}/members/${currentUser.id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const data = await res.json();
+    if (res.ok) {
+      closeModal('chatDetailsModal');
+      activeChat = null;
+      showToast(`Вы покинули группу «${groupName}»`);
+      await loadChats();
+      document.getElementById('emptyChatState').classList.remove('hidden');
+      document.getElementById('activeChatState').classList.add('hidden');
+    } else {
+      alert(data.error || 'Ошибка при выходе из группы');
+    }
+  } catch (err) {
+    alert('Сетевая ошибка при выходе из группы');
+  }
+}
