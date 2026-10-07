@@ -2199,59 +2199,149 @@ async function createGroupSubmit() {
 
 function openChatDetailsModal() {
   if (!activeChat) return;
-  const displayName = activeChat.name || (activeChat.partner ? activeChat.partner.name : 'Личный диалог');
-  updateAvatarElement('detailsAvatar', activeChat.avatar, displayName, 'avatar-lg');
 
   const isGroup = activeChat.type === 'group';
-  const canEdit = isGroup && (activeChat.myRole === 'owner' || activeChat.myRole === 'admin' || (currentUser && currentUser.role === 'superadmin'));
+  const directBlock = document.getElementById('directDetailsBlock');
+  const groupBlock = document.getElementById('groupDetailsBlock');
+  const titleEl = document.getElementById('detailsModalTitle');
 
-  const editAvatarBtn = document.getElementById('groupAvatarEditBtn');
-  if (editAvatarBtn) editAvatarBtn.style.display = canEdit ? 'flex' : 'none';
+  if (isGroup) {
+    if (titleEl) titleEl.innerHTML = '<i class="fa-solid fa-users text-primary"></i> Настройки и участники группы';
+    if (directBlock) directBlock.classList.add('hidden');
+    if (groupBlock) groupBlock.classList.remove('hidden');
 
-  const addMembersBtn = document.getElementById('addGroupMembersBtn');
-  if (addMembersBtn) addMembersBtn.style.display = canEdit ? 'inline-flex' : 'none';
+    const displayName = activeChat.name || 'Группа';
+    updateAvatarElement('detailsAvatar', activeChat.avatar, displayName, 'avatar-lg');
 
-  const editNameInput = document.getElementById('editGroupNameInput');
-  const editDescInput = document.getElementById('editGroupDescInput');
-  const saveBtn = document.getElementById('saveGroupInfoBtn');
-  const descView = document.getElementById('groupDescView');
+    const canEdit = activeChat.myRole === 'owner' || activeChat.myRole === 'admin' || (currentUser && currentUser.role === 'superadmin');
 
-  if (editNameInput) editNameInput.value = activeChat.name || '';
-  if (editDescInput) editDescInput.value = activeChat.description || '';
+    const editAvatarBtn = document.getElementById('groupAvatarEditBtn');
+    if (editAvatarBtn) editAvatarBtn.style.display = canEdit ? 'flex' : 'none';
 
-  if (canEdit) {
-    if (editNameInput) editNameInput.disabled = false;
-    if (editDescInput) editDescInput.style.display = 'block';
-    if (saveBtn) saveBtn.style.display = 'inline-flex';
-  } else {
-    if (editNameInput) editNameInput.disabled = true;
-    if (editDescInput) editDescInput.style.display = 'none';
-    if (saveBtn) saveBtn.style.display = 'none';
-  }
+    const addMembersBtn = document.getElementById('addGroupMembersBtn');
+    if (addMembersBtn) addMembersBtn.style.display = canEdit ? 'inline-flex' : 'none';
 
-  // Render description with clickable links
-  if (descView) {
-    if (activeChat.description && activeChat.description.trim()) {
-      descView.innerHTML = `<strong>Описание:</strong><br>${formatMessageText(activeChat.description)}`;
-      descView.style.display = 'block';
+    const editNameInput = document.getElementById('editGroupNameInput');
+    const editDescInput = document.getElementById('editGroupDescInput');
+    const saveBtn = document.getElementById('saveGroupInfoBtn');
+    const descView = document.getElementById('groupDescView');
+
+    if (editNameInput) editNameInput.value = activeChat.name || '';
+    if (editDescInput) editDescInput.value = activeChat.description || '';
+
+    if (canEdit) {
+      if (editNameInput) editNameInput.disabled = false;
+      if (editDescInput) editDescInput.style.display = 'block';
+      if (saveBtn) saveBtn.style.display = 'inline-flex';
     } else {
-      descView.innerHTML = '<span class="text-muted">Описание не указано</span>';
-      descView.style.display = canEdit ? 'none' : 'block';
+      if (editNameInput) editNameInput.disabled = true;
+      if (editDescInput) editDescInput.style.display = 'none';
+      if (saveBtn) saveBtn.style.display = 'none';
+    }
+
+    // Render description with clickable links
+    if (descView) {
+      if (activeChat.description && activeChat.description.trim()) {
+        descView.innerHTML = `<strong>Описание:</strong><br>${formatMessageText(activeChat.description)}`;
+        descView.style.display = 'block';
+      } else {
+        descView.innerHTML = '<span class="text-muted">Описание не указано</span>';
+        descView.style.display = canEdit ? 'none' : 'block';
+      }
+    }
+
+    const inviteInput = document.getElementById('inviteLinkInput');
+    const slug = encodeURIComponent((activeChat.name || 'group').trim().replace(/[\s\/]+/g, '_'));
+    const code = activeChat.invite_code || activeChat.id;
+    if (inviteInput) inviteInput.value = `${window.location.origin}/#/group/${code}/${slug}`;
+    const inviteBox = document.getElementById('inviteLinkBox');
+    if (inviteBox) inviteBox.classList.remove('hidden');
+
+    renderChatMembersList();
+  } else {
+    // DIRECT 1-ON-1 CHAT PROFILE
+    if (titleEl) titleEl.innerHTML = '<i class="fa-solid fa-id-badge text-primary"></i> Профиль собеседника';
+    if (groupBlock) groupBlock.classList.add('hidden');
+    if (directBlock) directBlock.classList.remove('hidden');
+
+    const partner = activeChat.partner || {};
+    const partnerName = partner.name || activeChat.name || 'Собеседник';
+    const partnerUsername = partner.username || '';
+    const partnerAvatar = partner.avatar || activeChat.avatar;
+    const partnerRole = partner.role || 'user';
+    const isPartnerOnline = partner.is_online || false;
+
+    updateAvatarElement('directDetailsAvatar', partnerAvatar, partnerName, 'avatar-xl');
+
+    const nameEl = document.getElementById('directDetailsName');
+    if (nameEl) {
+      let roleBadge = '';
+      if (partnerRole === 'superadmin') roleBadge = '<span class="badge badge-danger">👑 Создатель</span>';
+      else if (partnerRole === 'admin') roleBadge = '<span class="badge badge-warning">🛡️ Администратор</span>';
+      else roleBadge = '<span class="badge badge-primary">Пользователь</span>';
+
+      nameEl.innerHTML = `${escapeHtml(partnerName)} ${roleBadge}`;
+    }
+
+    const handleEl = document.getElementById('directDetailsHandle');
+    if (handleEl) handleEl.innerText = partnerUsername ? `@${partnerUsername}` : '';
+
+    const statusEl = document.getElementById('directDetailsStatus');
+    if (statusEl) {
+      statusEl.innerHTML = isPartnerOnline
+        ? '<span class="status-dot online"></span> <span class="text-success" style="font-weight:600;">в сети</span>'
+        : '<span class="status-dot offline"></span> <span class="text-muted">не в сети</span>';
+    }
+
+    const infoList = document.getElementById('directProfileInfoList');
+    if (infoList) {
+      let rows = '';
+      if (partner.bio && partner.bio.trim()) {
+        rows += `
+          <div class="direct-info-row">
+            <span class="direct-info-label"><i class="fa-solid fa-quote-left text-primary"></i> О себе:</span>
+            <span class="direct-info-val">${escapeHtml(partner.bio)}</span>
+          </div>`;
+      }
+      rows += `
+        <div class="direct-info-row">
+          <span class="direct-info-label"><i class="fa-solid fa-shield-halved text-success"></i> Шифрование:</span>
+          <span class="direct-info-val text-success"><i class="fa-solid fa-lock"></i> E2EE AES-256-GCM</span>
+        </div>
+        <div class="direct-info-row">
+          <span class="direct-info-label"><i class="fa-solid fa-network-wired text-primary"></i> Канал связи:</span>
+          <span class="direct-info-val text-primary"><i class="fa-solid fa-tower-broadcast"></i> WebRTC P2P Direct</span>
+        </div>
+      `;
+      infoList.innerHTML = rows;
     }
   }
 
-  const inviteInput = document.getElementById('inviteLinkInput');
-  if (isGroup) {
-    const slug = encodeURIComponent((activeChat.name || 'group').trim().replace(/[\s\/]+/g, '_'));
-    const code = activeChat.invite_code || activeChat.id;
-    inviteInput.value = `${window.location.origin}/#/group/${code}/${slug}`;
-    document.getElementById('inviteLinkBox').classList.remove('hidden');
-  } else {
-    document.getElementById('inviteLinkBox').classList.add('hidden');
-  }
-
-  renderChatMembersList();
   document.getElementById('chatDetailsModal').classList.remove('hidden');
+}
+
+function startDirectCallFromDetails(type = 'audio') {
+  closeModal('chatDetailsModal');
+  startDirectCall(type);
+}
+
+function openWallpaperFromDetails() {
+  closeModal('chatDetailsModal');
+  openWallpaperModal();
+}
+
+function copyDirectContactLink() {
+  if (!activeChat) return;
+  const link = `${window.location.origin}/#/c/${activeChat.id}`;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(link).then(() => {
+      showToast('Ссылка на диалог скопирована в буфер!');
+    }).catch(() => {
+      prompt('Скопируйте ссылку на диалог:', link);
+    });
+  } else {
+    prompt('Скопируйте ссылку на диалог:', link);
+  }
 }
 
 function renderChatMembersList() {

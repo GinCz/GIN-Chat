@@ -1905,6 +1905,7 @@ app.get('*', (req, res) => {
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 GIN-Chat running on http://0.0.0.0:${PORT}`);
-  sendTelegramNotification('🚀 <b>GIN-Chat сервер v026 запущен:</b>\n' + (process.env.APP_URL || 'https://www.chat-xxxxxx.ru') + '');
+  const domainUrl = (process.env.APP_URL || '4at.gincz.com').replace(/^https?:\/\/(www\.)?/, '').replace(/\/+$/, '');
+  sendTelegramNotification(`🚀 <b>GIN-Chat сервер v027 запущен:</b>\n${domainUrl}`);
   pollTelegramUpdates();
 });
