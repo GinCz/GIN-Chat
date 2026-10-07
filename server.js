@@ -331,7 +331,7 @@ app.post('/api/auth/register', (req, res) => {
           { text: '🗑 Удалить', callback_data: `delete_${newUserId}` }
         ],
         [
-          { text: '🌐 Открыть GIN-Chat', url: 'https://4at.gincz.com' }
+          { text: '🌐 Открыть GIN-Chat', url: process.env.APP_URL || 'https://www.chat-xxxxxx.ru' }
         ]
       ]
     });
@@ -1854,6 +1854,6 @@ app.get('*', (req, res) => {
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 GIN-Chat running on http://0.0.0.0:${PORT}`);
-  sendTelegramNotification('🚀 <b>GIN-Chat сервер v020 запущен:</b>\nhttps://4at.gincz.com');
+  sendTelegramNotification('🚀 <b>GIN-Chat сервер v020 запущен:</b>\n' + (process.env.APP_URL || 'https://www.chat-xxxxxx.ru') + '');
   pollTelegramUpdates();
 });
