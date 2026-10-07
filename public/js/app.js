@@ -3427,63 +3427,212 @@ document.addEventListener('click', (e) => {
 // ====================================================
 let peerConnection = null;
 let localStream = null;
+// ====================================================
+// WEBRTC P2P 1-ON-1 AUDIO/VIDEO CALLS & LOUNGE MUSIC (v024)
+// ====================================================
+let localStream = null;
 let remoteStream = null;
+let peerConnection = null;
 let currentCallPeerId = null;
 let currentCallType = 'audio'; // 'audio' | 'video'
 let isCallInitiator = false;
 let callDurationTimer = null;
 let callSecondsElapsed = 0;
-let ringtoneAudioContext = null;
-let ringtoneOscillator = null;
 let isFrontCamera = true;
 let pendingIncomingCallData = null;
+let pendingIceCandidates = [];
 
+// High-Reliability STUN & TURN Relay Configuration
 const iceServersConfig = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun2.l.google.com:19302' },
-    { urls: 'stun:stun.cloudflare.com:3478' }
-  ]
+    { urls: 'stun:stun3.l.google.com:19302' },
+    { urls: 'stun:stun4.l.google.com:19302' },
+    { urls: 'stun:stun.cloudflare.com:3478' },
+    { urls: 'stun:global.stun.twilio.com:3478' },
+    {
+      urls: [
+        'turn:openrelay.metered.ca:80',
+        'turn:openrelay.metered.ca:443',
+        'turn:openrelay.metered.ca:443?transport=tcp'
+      ],
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    }
+  ],
+  iceCandidatePoolSize: 10
 };
 
-function playCallTone(type = 'dialing') {
+// ====================================================
+// ELEVATOR LOUNGE WAITING MUSIC SYNTHESIZER (Web Audio API)
+// ====================================================
+let callMusicTimer = null;
+let callMusicCtx = null;
+
+function playElevatorMusic() {
   stopCallTone();
   try {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     if (!AudioCtx) return;
-    ringtoneAudioContext = new AudioCtx();
-    const gainNode = ringtoneAudioContext.createGain();
-    gainNode.connect(ringtoneAudioContext.destination);
+    callMusicCtx = new AudioCtx();
 
-    if (type === 'dialing') {
-      const osc = ringtoneAudioContext.createOscillator();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(425, ringtoneAudioContext.currentTime);
-      gainNode.gain.setValueAtTime(0.12, ringtoneAudioContext.currentTime);
-      osc.connect(gainNode);
-      osc.start();
-      ringtoneOscillator = osc;
-    } else if (type === 'ringing') {
-      const osc = ringtoneAudioContext.createOscillator();
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(440, ringtoneAudioContext.currentTime);
-      gainNode.gain.setValueAtTime(0.18, ringtoneAudioContext.currentTime);
-      osc.connect(gainNode);
-      osc.start();
-      ringtoneOscillator = osc;
+    // Master Gain & Warm Vintage Lowpass Filter
+    const masterGain = callMusicCtx.createGain();
+    masterGain.gain.setValueAtTime(0.07, callMusicCtx.currentTime);
+
+    const filter = callMusicCtx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(1500, callMusicCtx.currentTime);
+    filter.Q.setValueAtTime(1.2, callMusicCtx.currentTime);
+
+    masterGain.connect(filter);
+    filter.connect(callMusicCtx.destination);
+
+    // Warm Elevator Lounge Chord Progression: Fmaj7 -> Em7 -> Dm7 -> Cmaj7
+    const notes = {
+      C3: 130.81, D3: 146.83, E3: 164.81, F3: 174.61, G3: 196.00, A3: 220.00, B3: 246.94,
+      C4: 261.63, D4: 293.66, E4: 329.63, F4: 349.23, G4: 392.00, A4: 440.00, B4: 493.88,
+      C5: 523.25, D5: 587.33, E5: 659.25, G5: 783.99
+    };
+
+    const pattern = [
+      { bass: notes.F3, chord: [notes.A3, notes.C4, notes.E4], melody: [notes.A4, notes.C5, notes.E5, notes.C5], time: 0 },
+      { bass: notes.E3, chord: [notes.G3, notes.B3, notes.D4], melody: [notes.G4, notes.B4, notes.D5, notes.B4], time: 2.4 },
+      { bass: notes.D3, chord: [notes.F3, notes.A3, notes.C4], melody: [notes.F4, notes.A4, notes.C5, notes.A4], time: 4.8 },
+      { bass: notes.C3, chord: [notes.E3, notes.G3, notes.B3], melody: [notes.E4, notes.G4, notes.B4, notes.G4], time: 7.2 }
+    ];
+
+    function playNote(freq, startTime, duration, vol = 0.15, isMelody = false) {
+      if (!callMusicCtx || callMusicCtx.state === 'closed') return;
+      const osc = callMusicCtx.createOscillator();
+      const gain = callMusicCtx.createGain();
+
+      osc.type = isMelody ? 'sine' : 'triangle';
+      osc.frequency.setValueAtTime(freq, startTime);
+
+      // Warm envelope
+      gain.gain.setValueAtTime(0.001, startTime);
+      gain.gain.linearRampToValueAtTime(vol, startTime + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+
+      osc.connect(gain);
+      gain.connect(masterGain);
+
+      osc.start(startTime);
+      osc.stop(startTime + duration + 0.05);
     }
-  } catch (e) {}
+
+    function scheduleLoop(startOffset) {
+      if (!callMusicCtx || callMusicCtx.state === 'closed') return;
+      pattern.forEach(bar => {
+        const barStart = startOffset + bar.time;
+        // Bass Note
+        playNote(bar.bass, barStart, 2.0, 0.22, false);
+        // Harmony chord
+        bar.chord.forEach(n => playNote(n, barStart + 0.05, 1.8, 0.12, false));
+        // Soft arpeggio melody
+        bar.melody.forEach((mn, idx) => {
+          playNote(mn, barStart + 0.3 + (idx * 0.5), 0.75, 0.22, true);
+        });
+      });
+    }
+
+    let loopStart = callMusicCtx.currentTime + 0.1;
+    scheduleLoop(loopStart);
+
+    callMusicTimer = setInterval(() => {
+      if (!callMusicCtx || callMusicCtx.state === 'closed') return;
+      loopStart += 9.6;
+      scheduleLoop(loopStart);
+    }, 9600);
+
+  } catch (e) {
+    console.warn('Elevator music error:', e);
+  }
+}
+
+function playIncomingRingtone() {
+  stopCallTone();
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    callMusicCtx = new AudioCtx();
+
+    const masterGain = callMusicCtx.createGain();
+    masterGain.gain.setValueAtTime(0.12, callMusicCtx.currentTime);
+    masterGain.connect(callMusicCtx.destination);
+
+    const notes = [523.25, 659.25, 783.99, 1046.50, 783.99, 659.25]; // C5, E5, G5, C6, G5, E5
+
+    function playRingtoneNote(freq, time) {
+      if (!callMusicCtx || callMusicCtx.state === 'closed') return;
+      const osc = callMusicCtx.createOscillator();
+      const gain = callMusicCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, time);
+      gain.gain.setValueAtTime(0.001, time);
+      gain.gain.linearRampToValueAtTime(0.18, time + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.001, time + 0.4);
+      osc.connect(gain);
+      gain.connect(masterGain);
+      osc.start(time);
+      osc.stop(time + 0.45);
+    }
+
+    function scheduleRingtoneLoop(startOffset) {
+      if (!callMusicCtx || callMusicCtx.state === 'closed') return;
+      notes.forEach((freq, i) => {
+        playRingtoneNote(freq, startOffset + (i * 0.18));
+      });
+    }
+
+    let t = callMusicCtx.currentTime + 0.1;
+    scheduleRingtoneLoop(t);
+
+    callMusicTimer = setInterval(() => {
+      if (!callMusicCtx || callMusicCtx.state === 'closed') return;
+      t = callMusicCtx.currentTime + 0.1;
+      scheduleRingtoneLoop(t);
+    }, 2400);
+
+  } catch (e) {
+    console.warn('Ringtone synth error:', e);
+  }
+}
+
+function playCallTone(type = 'dialing') {
+  if (type === 'dialing') {
+    playElevatorMusic();
+  } else if (type === 'ringing') {
+    playIncomingRingtone();
+  }
 }
 
 function stopCallTone() {
-  if (ringtoneOscillator) {
-    try { ringtoneOscillator.stop(); } catch (e) {}
-    ringtoneOscillator = null;
+  if (callMusicTimer) {
+    clearInterval(callMusicTimer);
+    callMusicTimer = null;
   }
-  if (ringtoneAudioContext) {
-    try { ringtoneAudioContext.close(); } catch (e) {}
-    ringtoneAudioContext = null;
+  if (callMusicCtx) {
+    try {
+      callMusicCtx.close();
+    } catch (e) {}
+    callMusicCtx = null;
+  }
+}
+
+// Flush all queued ICE candidates once remote description is set
+async function processPendingIceCandidates() {
+  if (!peerConnection || !peerConnection.remoteDescription || !peerConnection.remoteDescription.type) return;
+  while (pendingIceCandidates.length > 0) {
+    const cand = pendingIceCandidates.shift();
+    try {
+      await peerConnection.addIceCandidate(new RTCIceCandidate(cand));
+    } catch (e) {
+      console.warn('Error adding queued ICE candidate:', e);
+    }
   }
 }
 
@@ -3496,6 +3645,7 @@ async function startDirectCall(type = 'audio') {
   currentCallPeerId = activeChat.partner.id;
   currentCallType = type;
   isCallInitiator = true;
+  pendingIceCandidates = [];
 
   setupCallModalUI({
     name: activeChat.partner.name,
@@ -3510,21 +3660,29 @@ async function startDirectCall(type = 'audio') {
 
   try {
     localStream = await navigator.mediaDevices.getUserMedia({
-      audio: true,
-      video: type === 'video' ? { facingMode: 'user' } : false
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      video: type === 'video' ? { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } } : false
     });
 
     if (type === 'video') {
       const localVid = document.getElementById('localVideo');
-      if (localVid) localVid.srcObject = localStream;
+      if (localVid) {
+        localVid.srcObject = localStream;
+        localVid.play().catch(() => {});
+      }
       document.getElementById('callVideoContainer').classList.remove('hidden');
     }
 
     createPeerConnection();
 
-    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+    localStream.getTracks().forEach(track => {
+      peerConnection.addTrack(track, localStream);
+    });
 
-    const offer = await peerConnection.createOffer();
+    const offer = await peerConnection.createOffer({
+      offerToReceiveAudio: true,
+      offerToReceiveVideo: type === 'video'
+    });
     await peerConnection.setLocalDescription(offer);
 
     socket.emit('call_start', {
@@ -3546,6 +3704,7 @@ function handleIncomingCall(data) {
   currentCallPeerId = data.fromUserId;
   currentCallType = data.type || 'audio';
   isCallInitiator = false;
+  pendingIceCandidates = [];
 
   setupCallModalUI({
     name: data.callerName,
@@ -3568,21 +3727,27 @@ async function acceptIncomingCall() {
 
   try {
     localStream = await navigator.mediaDevices.getUserMedia({
-      audio: true,
-      video: currentCallType === 'video' ? { facingMode: 'user' } : false
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      video: currentCallType === 'video' ? { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } } : false
     });
 
     if (currentCallType === 'video') {
       const localVid = document.getElementById('localVideo');
-      if (localVid) localVid.srcObject = localStream;
+      if (localVid) {
+        localVid.srcObject = localStream;
+        localVid.play().catch(() => {});
+      }
       document.getElementById('callVideoContainer').classList.remove('hidden');
     }
 
     createPeerConnection();
 
-    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+    localStream.getTracks().forEach(track => {
+      peerConnection.addTrack(track, localStream);
+    });
 
     await peerConnection.setRemoteDescription(new RTCSessionDescription(pendingIncomingCallData.offer));
+    await processPendingIceCandidates();
 
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
@@ -3596,7 +3761,7 @@ async function acceptIncomingCall() {
   } catch (err) {
     console.error('Accept call error:', err);
     endCall();
-    showToast('Ошибка при подключении звонка', 'error');
+    showToast('Ошибка при подключении звонка: разрешите микрофон', 'error');
   }
 }
 
@@ -3608,6 +3773,7 @@ async function handleCallAccepted({ fromUserId, answer }) {
   try {
     if (peerConnection) {
       await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+      await processPendingIceCandidates();
     }
   } catch (err) {
     console.error('Set remote answer error:', err);
@@ -3633,11 +3799,16 @@ function handleCallFailed({ reason, message }) {
 }
 
 async function handleCallIceCandidate({ candidate }) {
+  if (!candidate) return;
   try {
-    if (peerConnection && candidate) {
+    if (peerConnection && peerConnection.remoteDescription && peerConnection.remoteDescription.type) {
       await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+    } else {
+      pendingIceCandidates.push(candidate);
     }
-  } catch (e) {}
+  } catch (e) {
+    console.warn('Add ICE candidate error:', e);
+  }
 }
 
 function createPeerConnection() {
@@ -3653,16 +3824,42 @@ function createPeerConnection() {
   };
 
   peerConnection.ontrack = (event) => {
-    remoteStream = event.streams[0];
+    console.log('WebRTC ontrack track kind:', event.track.kind);
+    if (event.streams && event.streams[0]) {
+      remoteStream = event.streams[0];
+    } else {
+      if (!remoteStream) remoteStream = new MediaStream();
+      remoteStream.addTrack(event.track);
+    }
+
     const remoteVid = document.getElementById('remoteVideo');
     const remoteAud = document.getElementById('remoteAudio');
 
-    if (currentCallType === 'video' && remoteVid) {
-      remoteVid.srcObject = remoteStream;
-      document.getElementById('callVideoContainer').classList.remove('hidden');
-    }
     if (remoteAud) {
       remoteAud.srcObject = remoteStream;
+      remoteAud.autoplay = true;
+      remoteAud.playsInline = true;
+      remoteAud.play().catch(err => console.warn('Remote audio autoplay error:', err));
+    }
+
+    if (event.track.kind === 'video' && remoteVid) {
+      remoteVid.srcObject = remoteStream;
+      remoteVid.autoplay = true;
+      remoteVid.playsInline = true;
+      document.getElementById('callVideoContainer').classList.remove('hidden');
+      remoteVid.play().catch(err => console.warn('Remote video autoplay error:', err));
+    }
+  };
+
+  peerConnection.oniceconnectionstatechange = () => {
+    console.log('ICE connection state:', peerConnection?.iceConnectionState);
+    if (peerConnection?.iceConnectionState === 'connected' || peerConnection?.iceConnectionState === 'completed') {
+      document.getElementById('callStatusText').innerText = 'В разговоре (P2P Защищено)';
+      const remoteAud = document.getElementById('remoteAudio');
+      if (remoteAud) remoteAud.play().catch(() => {});
+    } else if (peerConnection?.iceConnectionState === 'failed') {
+      console.warn('ICE connection failed, attempting ICE restart...');
+      if (peerConnection.restartIce) peerConnection.restartIce();
     }
   };
 
@@ -3670,6 +3867,8 @@ function createPeerConnection() {
     if (!peerConnection) return;
     if (peerConnection.connectionState === 'connected') {
       document.getElementById('callStatusText').innerText = 'В разговоре (P2P Защищено)';
+      const remoteAud = document.getElementById('remoteAudio');
+      if (remoteAud) remoteAud.play().catch(() => {});
     } else if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed') {
       endCall();
     }
@@ -3752,12 +3951,15 @@ async function switchCallCamera() {
 
   try {
     const newStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: isFrontCamera ? 'user' : 'environment' }
+      video: { facingMode: isFrontCamera ? 'user' : 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
     });
     const newTrack = newStream.getVideoTracks()[0];
     localStream.addTrack(newTrack);
     const localVid = document.getElementById('localVideo');
-    if (localVid) localVid.srcObject = localStream;
+    if (localVid) {
+      localVid.srcObject = localStream;
+      localVid.play().catch(() => {});
+    }
 
     if (peerConnection) {
       const sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
@@ -3785,10 +3987,18 @@ function cleanUpCall() {
     remoteStream.getTracks().forEach(t => t.stop());
     remoteStream = null;
   }
+  const localVid = document.getElementById('localVideo');
+  if (localVid) localVid.srcObject = null;
+  const remoteVid = document.getElementById('remoteVideo');
+  if (remoteVid) remoteVid.srcObject = null;
+  const remoteAud = document.getElementById('remoteAudio');
+  if (remoteAud) remoteAud.srcObject = null;
+
   if (peerConnection) {
-    peerConnection.close();
+    try { peerConnection.close(); } catch (e) {}
     peerConnection = null;
   }
+  pendingIceCandidates = [];
   currentCallPeerId = null;
   pendingIncomingCallData = null;
   closeModal('callModal');
