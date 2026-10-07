@@ -692,17 +692,58 @@ app.get('/api/admin/stats', authMiddleware, requireAdmin, (req, res) => {
 // CHATS & GROUPS ROUTES
 // ----------------------------------------------------
 
+
+// Helper to guarantee direct chats exist with ALL approved users
+function ensureDirectChatsForUser(userId) {
+  try {
+    const approvedUsers = db.prepare(`
+      SELECT id FROM users WHERE status = 'approved' AND id != ?
+    `).all(userId);
+
+    if (!approvedUsers || approvedUsers.length === 0) return;
+
+    const insertDirect = db.transaction(() => {
+      for (const target of approvedUsers) {
+        const existing = db.prepare(`
+          SELECT c.id FROM chats c
+          JOIN chat_members cm1 ON c.id = cm1.chat_id AND cm1.user_id = ?
+          JOIN chat_members cm2 ON c.id = cm2.chat_id AND cm2.user_id = ?
+          WHERE c.type = 'direct'
+        `).get(userId, target.id);
+
+        if (!existing) {
+          const info = db.prepare(`
+            INSERT INTO chats (type, created_by, updated_at) VALUES ('direct', ?, '2000-01-01 00:00:00')
+          `).run(userId);
+          const chatId = info.lastInsertRowid;
+          db.prepare(`INSERT INTO chat_members (chat_id, user_id, role) VALUES (?, ?, 'member')`).run(chatId, userId);
+          db.prepare(`INSERT INTO chat_members (chat_id, user_id, role) VALUES (?, ?, 'member')`).run(chatId, target.id);
+        }
+      }
+    });
+
+    insertDirect();
+  } catch (err) {
+    console.error('ensureDirectChatsForUser error:', err);
+  }
+}
+
 // Get user's active chats list
 app.get('/api/chats', authMiddleware, (req, res) => {
   const userId = req.user.id;
+  ensureDirectChatsForUser(userId);
   
   const chats = db.prepare(`
     SELECT c.id, c.type, c.name, c.description, c.avatar, c.created_by, c.invite_code, c.pinned_message_id, c.updated_at,
-           cm.role as my_role
+           cm.role as my_role,
+           (SELECT MAX(id) FROM messages WHERE chat_id = c.id AND (scheduled_at IS NULL OR scheduled_at <= CURRENT_TIMESTAMP)) as last_msg_id
     FROM chats c
     JOIN chat_members cm ON c.id = cm.chat_id
     WHERE cm.user_id = ?
-    ORDER BY c.updated_at DESC
+    ORDER BY 
+      CASE WHEN (SELECT MAX(id) FROM messages WHERE chat_id = c.id AND (scheduled_at IS NULL OR scheduled_at <= CURRENT_TIMESTAMP)) IS NOT NULL THEN 1 ELSE 2 END ASC,
+      c.updated_at DESC,
+      c.id ASC
   `).all(userId);
 
   const enrichedChats = chats.map(chat => {

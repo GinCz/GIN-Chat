@@ -379,6 +379,7 @@ function connectSocket() {
   });
 
   socket.on('user_approved', () => {
+    loadChats();
     if (currentUser && (currentUser.role === 'superadmin' || currentUser.role === 'admin')) {
       checkPendingUsersCount();
       loadAdminData();
@@ -466,7 +467,13 @@ function renderChatsList() {
   container.innerHTML = filtered.map(chat => {
     const isActive = activeChat && activeChat.id === chat.id;
     const timeStr = chat.lastMessage ? formatTime(chat.lastMessage.created_at) : '';
-    const preview = chat.lastMessage ? escapeHtml(chat.lastMessage.text) : 'Нет сообщений';
+    const isDirect = chat.type === 'direct';
+    let preview = 'Нет сообщений';
+    if (chat.lastMessage) {
+      preview = escapeHtml(chat.lastMessage.text);
+    } else if (isDirect && chat.partner && chat.partner.username) {
+      preview = `@${escapeHtml(chat.partner.username)}`;
+    }
     const unreadBadge = chat.unreadCount > 0 ? `<div class="unread-badge">${chat.unreadCount}</div>` : '';
     const displayName = chat.name || (chat.partner ? chat.partner.name : 'Личный диалог');
 
