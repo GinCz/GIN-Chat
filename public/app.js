@@ -2460,7 +2460,7 @@ function openChatDetailsModal() {
     renderChatMembersList();
   } else {
     // DIRECT 1-ON-1 CHAT PROFILE
-    if (titleEl) titleEl.innerHTML = '<i class="fa-solid fa-id-badge text-primary"></i> Профиль собеседника';
+    if (titleEl) titleEl.innerHTML = '';
     if (groupBlock) groupBlock.classList.add('hidden');
     if (directBlock) directBlock.classList.remove('hidden');
 
@@ -2471,20 +2471,20 @@ function openChatDetailsModal() {
     const partnerRole = partner.role || 'user';
     const isPartnerOnline = partner.is_online || false;
 
-    updateAvatarElement('directDetailsAvatar', partnerAvatar, partnerName, 'avatar-xl');
+    updateAvatarElement('directDetailsAvatar', partnerAvatar, partnerName, 'avatar-lg');
 
     const nameEl = document.getElementById('directDetailsName');
-    if (nameEl) {
-      let roleBadge = '';
-      if (partnerRole === 'superadmin') roleBadge = '<span class="badge badge-danger">👑 Создатель</span>';
-      else if (partnerRole === 'admin') roleBadge = '<span class="badge badge-warning">🛡️ Администратор</span>';
-      else roleBadge = '<span class="badge badge-primary">Пользователь</span>';
-
-      nameEl.innerHTML = `${escapeHtml(partnerName)} ${roleBadge}`;
-    }
+    if (nameEl) nameEl.innerText = partnerName;
 
     const handleEl = document.getElementById('directDetailsHandle');
     if (handleEl) handleEl.innerText = partnerUsername ? `@${partnerUsername}` : '';
+
+    const roleEl = document.getElementById('directDetailsRole');
+    if (roleEl) {
+      if (partnerRole === 'superadmin') roleEl.innerHTML = '<span class="badge badge-danger">👑 Создатель</span>';
+      else if (partnerRole === 'admin') roleEl.innerHTML = '<span class="badge badge-warning">🛡️ Администратор</span>';
+      else roleEl.innerHTML = '<span class="badge badge-primary">Пользователь</span>';
+    }
 
     const statusEl = document.getElementById('directDetailsStatus');
     if (statusEl) {
