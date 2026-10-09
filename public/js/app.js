@@ -98,10 +98,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const msgInput = document.getElementById('messageInput');
   msgInput?.addEventListener('input', () => {
     msgInput.style.height = 'auto';
-    msgInput.style.height = Math.min(msgInput.scrollHeight, 120) + 'px';
+    msgInput.style.height = Math.min(msgInput.scrollHeight, 150) + 'px';
     const hasText = msgInput.value.trim().length > 0;
     document.getElementById('sendBtn').classList.toggle('hidden', !hasText);
     document.getElementById('voiceBtn').classList.toggle('hidden', hasText);
+    if (activeChat) scrollToBottom();
   });
 });
 

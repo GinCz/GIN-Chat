@@ -9,8 +9,8 @@
   <link rel="icon" type="image/svg+xml" href="/favicon-v30.svg">
   <link rel="alternate icon" type="image/svg+xml" href="/favicon-v30.svg">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <link rel="stylesheet" href="/css/style.css?v=20261010_v030">
-    <link rel="manifest" href="/manifest.json?v=20261010_v030">
+  <link rel="stylesheet" href="/css/style.css?v=20261010_v031">
+    <link rel="manifest" href="/manifest.json?v=20261010_v031">
   <meta name="theme-color" content="#180a2b">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -251,7 +251,7 @@
           </div>
 
           <!-- Chat Input Area -->
-          <footer class="chat-input-area">
+          <footer class="chat-input-area" id="chatInputArea">
             <!-- Attachment Menu -->
             <div class="attachment-menu hidden" id="attachmentMenu">
               <button class="attach-item" onclick="triggerFileInput('image/*')"><i class="fa-solid fa-image"></i> Фото или Картинка</button>
@@ -259,17 +259,6 @@
             </div>
 
             <input type="file" id="hiddenFileInput" class="hidden" onchange="handleFileSelected(event)">
-
-            <button class="icon-btn" id="attachBtn" onclick="toggleAttachmentMenu()" title="Прикрепить файл"><i class="fa-solid fa-paperclip"></i></button>
-
-            <!-- Emoji Picker Trigger -->
-            <button class="icon-btn" id="emojiBtn" onclick="toggleEmojiPicker()" title="Смайлики"><i class="fa-regular fa-face-smile"></i></button>
-
-            <!-- GIF & Animated Stickers Trigger (/gif) -->
-            <button class="icon-btn gif-btn" id="gifBtn" onclick="toggleGifPicker()" title="GIF-анимации и стикеры (/gif)">GIF</button>
-
-            <!-- Schedule Message Trigger -->
-            <button class="icon-btn schedule-btn" id="scheduleBtn" onclick="openScheduleModal()" title="Отправить позже (по времени)"><i class="fa-regular fa-clock"></i></button>
 
             <!-- Emoji Picker Popup -->
             <div class="emoji-picker-popup hidden" id="emojiPicker">
@@ -309,9 +298,23 @@
               <div class="gif-grid" id="gifGrid"></div>
             </div>
 
-            <!-- Message Input Box -->
-            <div class="input-wrapper">
-              <textarea id="messageInput" rows="1" placeholder="Напишите сообщение..." onkeydown="handleInputKeydown(event)" oninput="handleTypingEvent()"></textarea>
+            <!-- Action buttons toolbar row (📎, 😊, GIF, ⏰) -->
+            <div class="chat-input-tools-row" id="chatInputToolsRow">
+              <button class="icon-btn tool-btn" id="attachBtn" onclick="toggleAttachmentMenu()" title="Прикрепить файл"><i class="fa-solid fa-paperclip"></i></button>
+              <button class="icon-btn tool-btn" id="emojiBtn" onclick="toggleEmojiPicker()" title="Смайлики"><i class="fa-regular fa-face-smile"></i></button>
+              <button class="icon-btn tool-btn gif-btn" id="gifBtn" onclick="toggleGifPicker()" title="GIF-анимации и стикеры (/gif)">GIF</button>
+              <button class="icon-btn tool-btn schedule-btn" id="scheduleBtn" onclick="openScheduleModal()" title="Отправить позже (по времени)"><i class="fa-regular fa-clock"></i></button>
+            </div>
+
+            <!-- Main text input + Send / Voice row -->
+            <div class="chat-input-main-row" id="chatInputMainRow">
+              <div class="input-wrapper">
+                <textarea id="messageInput" rows="1" placeholder="Напишите сообщение..." onkeydown="handleInputKeydown(event)" oninput="handleTypingEvent()"></textarea>
+              </div>
+
+              <!-- Record Voice / Send Buttons -->
+              <button class="icon-btn send-btn" id="voiceBtn" onclick="toggleVoiceRecording()" title="Голосовое сообщение"><i class="fa-solid fa-microphone"></i></button>
+              <button class="icon-btn send-btn hidden" id="sendBtn" onclick="sendMessage()" title="Отправить"><i class="fa-solid fa-paper-plane"></i></button>
             </div>
 
             <!-- Voice Recording UI -->
@@ -320,10 +323,6 @@
               <button class="btn btn-sm btn-danger" onclick="cancelVoiceRecording()"><i class="fa-solid fa-trash"></i> Отмена</button>
               <button class="btn btn-sm btn-success" onclick="stopAndSendVoice()"><i class="fa-solid fa-paper-plane"></i> Отправить</button>
             </div>
-
-            <!-- Record Voice / Send Buttons -->
-            <button class="icon-btn send-btn" id="voiceBtn" onclick="toggleVoiceRecording()" title="Голосовое сообщение"><i class="fa-solid fa-microphone"></i></button>
-            <button class="icon-btn send-btn hidden" id="sendBtn" onclick="sendMessage()" title="Отправить"><i class="fa-solid fa-paper-plane"></i></button>
           </footer>
         </div>
       </main>
@@ -1161,7 +1160,7 @@
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
-  <script src="/js/app.js?v=20261009_v030"></script>
+  <script src="/js/app.js?v=20261010_v031"></script>
   <!-- PWA Service Worker & Install Handler -->
   <script>
     if ('serviceWorker' in navigator) {
