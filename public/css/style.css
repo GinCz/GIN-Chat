@@ -4410,3 +4410,115 @@ body.light-theme .direct-info-row:not(:last-child) {
 
 
 
+
+/* ==========================================================================
+   MULTI-MESSAGE SELECTION & BATCH ACTIONS
+   ========================================================================== */
+
+.selection-bar {
+  background: var(--bg-sidebar, #111827);
+  border-bottom: 2px solid var(--primary-color, #0284c7);
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  z-index: 15;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  animation: slideDownSelection 0.18s ease-out;
+}
+
+@keyframes slideDownSelection {
+  from { transform: translateY(-100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.selection-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-main, #f8fafc);
+}
+
+.selection-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.icon-btn#headerSelectMessagesBtn.active {
+  color: #00f2fe;
+  background: rgba(0, 242, 254, 0.15);
+}
+
+.msg-row-inner {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.msg-select-check {
+  display: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-right: 10px;
+  transition: all 0.15s ease;
+  background: rgba(0, 0, 0, 0.3);
+  font-size: 11px;
+  color: transparent;
+}
+
+.msg-row.out .msg-select-check {
+  order: 2;
+  margin-right: 0;
+  margin-left: 10px;
+}
+
+.messages-container.selection-mode .msg-select-check {
+  display: flex;
+}
+
+.messages-container.selection-mode .msg-row {
+  cursor: pointer;
+}
+
+.messages-container.selection-mode .msg-row:hover .msg-bubble {
+  filter: brightness(1.08);
+}
+
+.msg-row.selected .msg-select-check {
+  background: #00f2fe !important;
+  border-color: #00f2fe !important;
+  color: #000000 !important;
+  box-shadow: 0 0 8px rgba(0, 242, 254, 0.6);
+}
+
+.msg-row.selected .msg-bubble {
+  outline: 2.5px solid #00f2fe !important;
+  box-shadow: 0 0 16px rgba(0, 242, 254, 0.45), 0 3px 8px rgba(0, 0, 0, 0.25) !important;
+  transform: scale(1.01);
+  transition: transform 0.12s ease;
+}
+
+body.light-theme .selection-bar {
+  background: #f0f9ff !important;
+  border-bottom: 2px solid #0284c7 !important;
+  color: #0f172a !important;
+}
+
+body.light-theme .selection-info {
+  color: #0f172a !important;
+}
+
+body.light-theme .msg-select-check {
+  border-color: #94a3b8;
+  background: #ffffff;
+}

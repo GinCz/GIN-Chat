@@ -8,6 +8,10 @@ let replyMessage = null;
 let editingMessage = null;
 let currentUploadXhr = null;
 
+// Multi-message selection state
+let isSelectionMode = false;
+let selectedMessageIds = new Set();
+
 // Voice recording state
 let mediaRecorder = null;
 let audioChunks = [];
@@ -360,6 +364,26 @@ function connectSocket() {
         msgRow.style.transform = 'scale(0.8)';
         setTimeout(() => msgRow.remove(), 250);
       }
+      if (selectedMessageIds.has(messageId)) {
+        selectedMessageIds.delete(messageId);
+        updateSelectionUI();
+      }
+    }
+    loadChats();
+  });
+
+  socket.on('messages_deleted', ({ chatId, messageIds }) => {
+    if (activeChat && activeChat.id === chatId && Array.isArray(messageIds)) {
+      messageIds.forEach(id => {
+        const msgRow = document.getElementById(`msg-${id}`);
+        if (msgRow) {
+          msgRow.style.opacity = '0';
+          msgRow.style.transform = 'scale(0.8)';
+          setTimeout(() => msgRow.remove(), 250);
+        }
+        selectedMessageIds.delete(id);
+      });
+      updateSelectionUI();
     }
     loadChats();
   });
@@ -637,6 +661,7 @@ function renderChatsList() {
 
 async function selectChat(chatId) {
   try {
+    exitSelectionMode();
     const res = await fetch(`/api/chats/${chatId}`, {
       headers: { Authorization: `Bearer ${token}` }
     });
@@ -763,6 +788,7 @@ function appendMessageToView(msg) {
       <button class="msg-act-btn msg-act-emoji" onclick="toggleReaction(${msg.id}, '🔥')" title="Огонь 🔥">🔥</button>
       <button class="msg-act-btn msg-act-emoji" onclick="toggleReaction(${msg.id}, '😂')" title="Смех 😂">😂</button>
       <button class="msg-act-btn reaction-more" onclick="openReactionPicker(event, ${msg.id})" title="Все 25 реакций"><i class="fa-regular fa-face-smile"></i></button>
+      <button class="msg-act-btn" onclick="toggleSelectMessage(${msg.id}, event)" title="Выбрать"><i class="fa-regular fa-square-check"></i></button>
       <button class="msg-act-btn forward" onclick="openForwardModal(${msg.id})" title="Переслать"><i class="fa-solid fa-share"></i></button>
       <button class="msg-act-btn" onclick="setReplyMessageById(${msg.id})" title="Ответить"><i class="fa-solid fa-reply"></i></button>
       ${(canModify && msg.type === 'text') ? `<button class="msg-act-btn" onclick="startEditMessage(${msg.id}, '${escapeForJs(msg.text)}')" title="Редактировать"><i class="fa-solid fa-pencil"></i></button>` : ''}
@@ -878,15 +904,41 @@ function appendMessageToView(msg) {
   bubble.className = 'msg-bubble';
   bubble.innerHTML = contentHtml;
 
+  // Selection Checkmark Element
+  const checkEl = document.createElement('div');
+  checkEl.className = 'msg-select-check';
+  checkEl.innerHTML = '<i class="fa-solid fa-check"></i>';
+  checkEl.title = 'Выбрать';
+  checkEl.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleSelectMessage(msg.id, e);
+  });
+
   bubble.addEventListener('contextmenu', (e) => {
     e.preventDefault();
     setReplyMessage(msg);
   });
-  bubble.addEventListener('dblclick', () => {
+  bubble.addEventListener('dblclick', (e) => {
+    if (isSelectionMode) return;
     toggleReaction(msg.id, '👍');
   });
+  bubble.addEventListener('click', (e) => {
+    if (isSelectionMode) {
+      // If clicking interactive controls inside bubble, ignore
+      if (e.target.closest('button, a, input, audio, video, .msg-action-bar, .audio-seek-track')) return;
+      e.preventDefault();
+      toggleSelectMessage(msg.id, e);
+    }
+  });
 
+  row.appendChild(checkEl);
   row.appendChild(bubble);
+
+  // Restore selection state if message was already selected
+  if (selectedMessageIds.has(msg.id)) {
+    row.classList.add('selected');
+  }
+
   container.appendChild(row);
 
   renderReactions(msg.id, msg.reactions);
@@ -1619,20 +1671,184 @@ document.addEventListener('click', (e) => {
 });
 
 // ----------------------------------------------------
+// MULTI-MESSAGE SELECTION SYSTEM
+// ----------------------------------------------------
+function toggleSelectionMode(forceState) {
+  if (typeof forceState === 'boolean') {
+    isSelectionMode = forceState;
+  } else {
+    isSelectionMode = !isSelectionMode;
+  }
+
+  const bar = document.getElementById('selectionBar');
+  const container = document.getElementById('messagesContainer');
+  const headerBtn = document.getElementById('headerSelectMessagesBtn');
+
+  if (isSelectionMode) {
+    if (bar) bar.classList.remove('hidden');
+    if (container) container.classList.add('selection-mode');
+    if (headerBtn) headerBtn.classList.add('active');
+  } else {
+    if (bar) bar.classList.add('hidden');
+    if (container) container.classList.remove('selection-mode');
+    if (headerBtn) headerBtn.classList.remove('active');
+    selectedMessageIds.clear();
+    document.querySelectorAll('.msg-row.selected').forEach(r => r.classList.remove('selected'));
+  }
+
+  updateSelectionUI();
+}
+
+function exitSelectionMode() {
+  toggleSelectionMode(false);
+}
+
+function toggleSelectMessage(msgId, event) {
+  if (event) {
+    event.stopPropagation();
+  }
+
+  // If selection mode wasn't active, activate it immediately
+  if (!isSelectionMode) {
+    toggleSelectionMode(true);
+  }
+
+  const id = Number(msgId);
+  const row = document.getElementById(`msg-${id}`);
+
+  if (selectedMessageIds.has(id)) {
+    selectedMessageIds.delete(id);
+    if (row) row.classList.remove('selected');
+  } else {
+    selectedMessageIds.add(id);
+    if (row) row.classList.add('selected');
+  }
+
+  updateSelectionUI();
+}
+
+function toggleSelectAllMessages() {
+  if (!activeChat) return;
+  if (!isSelectionMode) {
+    toggleSelectionMode(true);
+  }
+
+  const allRows = Array.from(document.querySelectorAll('#messagesScroll .msg-row'));
+  const allIds = allRows.map(r => Number(r.id.replace('msg-', ''))).filter(n => !isNaN(n));
+
+  const allSelected = allIds.length > 0 && allIds.every(id => selectedMessageIds.has(id));
+
+  if (allSelected) {
+    // Unselect all
+    selectedMessageIds.clear();
+    allRows.forEach(r => r.classList.remove('selected'));
+  } else {
+    // Select all
+    allIds.forEach(id => selectedMessageIds.add(id));
+    allRows.forEach(r => r.classList.add('selected'));
+  }
+
+  updateSelectionUI();
+}
+
+function updateSelectionUI() {
+  const count = selectedMessageIds.size;
+  const countText = document.getElementById('selectionCountText');
+  const forwardCountBadge = document.getElementById('forwardSelectedCountBadge');
+  const deleteCountBadge = document.getElementById('deleteSelectedCountBadge');
+  const forwardBtn = document.getElementById('deleteSelectedBtn') ? document.getElementById('forwardSelectedBtn') : null;
+  const deleteBtn = document.getElementById('deleteSelectedBtn');
+  const selectAllBtn = document.getElementById('selectAllBtn');
+
+  if (countText) countText.innerText = `Выбрано: ${count}`;
+  if (forwardCountBadge) forwardCountBadge.innerText = count;
+  if (deleteCountBadge) deleteCountBadge.innerText = count;
+
+  if (forwardBtn) forwardBtn.disabled = count === 0;
+  if (deleteBtn) deleteBtn.disabled = count === 0;
+
+  const allRows = document.querySelectorAll('#messagesScroll .msg-row');
+  const totalCount = allRows.length;
+
+  if (selectAllBtn) {
+    if (totalCount > 0 && count === totalCount) {
+      selectAllBtn.innerHTML = '<i class="fa-solid fa-xmark"></i> Снять выбор';
+    } else {
+      selectAllBtn.innerHTML = '<i class="fa-solid fa-check-double"></i> Выбрать все';
+    }
+  }
+}
+
+function forwardSelectedMessages() {
+  if (selectedMessageIds.size === 0) return;
+  const idsArray = Array.from(selectedMessageIds).sort((a, b) => a - b);
+  openForwardModal(idsArray);
+}
+
+function deleteSelectedMessages() {
+  if (!activeChat || !socket || selectedMessageIds.size === 0) return;
+
+  const count = selectedMessageIds.size;
+  const confirmMsg = count === 1 
+    ? 'Удалить выбранное сообщение?' 
+    : `Удалить выбранные сообщения (${count} шт.)?`;
+
+  if (!confirm(confirmMsg)) return;
+
+  const idsArray = Array.from(selectedMessageIds);
+  const deleteBtn = document.getElementById('deleteSelectedBtn');
+  if (deleteBtn) {
+    deleteBtn.disabled = true;
+    deleteBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Удаление...';
+  }
+
+  socket.emit('delete_messages', {
+    chatId: activeChat.id,
+    messageIds: idsArray
+  }, (res) => {
+    if (deleteBtn) {
+      deleteBtn.disabled = false;
+      deleteBtn.innerHTML = `<i class="fa-solid fa-trash"></i> Удалить (<span id="deleteSelectedCountBadge">0</span>)`;
+    }
+
+    if (res && res.error) {
+      alert(res.error);
+    } else {
+      showToast(`Удалено сообщений: ${res && res.count !== undefined ? res.count : idsArray.length}`);
+      exitSelectionMode();
+    }
+  });
+}
+
+// ----------------------------------------------------
 // FORWARD MESSAGE SYSTEM (Compact Vertical & Multi-Select)
 // ----------------------------------------------------
-let forwardMessageId = null;
+let forwardMessageIds = []; // Can be array of IDs or single ID in array
 let forwardSelectedRecipients = new Set();
 let forwardAvailableItems = [];
 
-async function openForwardModal(messageId) {
-  forwardMessageId = messageId;
+async function openForwardModal(targetIds) {
+  if (Array.isArray(targetIds)) {
+    forwardMessageIds = targetIds.map(Number);
+  } else if (targetIds) {
+    forwardMessageIds = [Number(targetIds)];
+  } else {
+    forwardMessageIds = [];
+  }
+
   forwardSelectedRecipients.clear();
   updateForwardSubmitButton();
 
   const modal = document.getElementById('forwardModal');
+  const modalTitle = document.getElementById('forwardModalTitle');
   const searchInput = document.getElementById('forwardSearchInput');
   const listContainer = document.getElementById('forwardRecipientsList');
+
+  if (modalTitle) {
+    const count = forwardMessageIds.length;
+    modalTitle.innerHTML = `<i class="fa-solid fa-share text-primary"></i> Переслать ${count > 1 ? `сообщения (${count})` : 'сообщение'}`;
+  }
+
   if (searchInput) searchInput.value = '';
   modal.classList.remove('hidden');
 
@@ -1744,7 +1960,7 @@ function updateForwardSubmitButton() {
 }
 
 async function submitForwardMessage() {
-  if (!forwardMessageId || forwardSelectedRecipients.size === 0) return;
+  if (!forwardMessageIds || forwardMessageIds.length === 0 || forwardSelectedRecipients.size === 0) return;
 
   const btn = document.getElementById('submitForwardBtn');
   btn.disabled = true;
@@ -1777,20 +1993,41 @@ async function submitForwardMessage() {
       return;
     }
 
-    socket.emit('forward_message', {
-      messageId: forwardMessageId,
-      targetChatIds
-    }, (resp) => {
-      btn.disabled = false;
-      btn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> Переслать (<span id="forwardSelectedCount">0</span>)`;
-      if (resp && resp.error) {
-        alert(resp.error);
-      } else {
-        closeModal('forwardModal');
-        showToast(`Сообщение успешно переслано (${targetChatIds.length})!`);
-        loadChats();
-      }
-    });
+    if (forwardMessageIds.length === 1) {
+      // Single message forward
+      socket.emit('forward_message', {
+        messageId: forwardMessageIds[0],
+        targetChatIds
+      }, (resp) => {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> Переслать (<span id="forwardSelectedCount">0</span>)`;
+        if (resp && resp.error) {
+          alert(resp.error);
+        } else {
+          closeModal('forwardModal');
+          showToast(`Сообщение успешно переслано (${targetChatIds.length})!`);
+          exitSelectionMode();
+          loadChats();
+        }
+      });
+    } else {
+      // Multi-message batch forward
+      socket.emit('forward_messages', {
+        messageIds: forwardMessageIds,
+        targetChatIds
+      }, (resp) => {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> Переслать (<span id="forwardSelectedCount">0</span>)`;
+        if (resp && resp.error) {
+          alert(resp.error);
+        } else {
+          closeModal('forwardModal');
+          showToast(`Сообщения успешно пересланы (${forwardMessageIds.length} шт.)!`);
+          exitSelectionMode();
+          loadChats();
+        }
+      });
+    }
   } catch (err) {
     alert('Ошибка пересылки сообщения');
     btn.disabled = false;

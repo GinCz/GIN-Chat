@@ -214,8 +214,28 @@
             <div class="chat-header-actions">
               <button class="icon-btn" id="headerAudioCallBtn" onclick="startDirectCall('audio')" title="Голосовой звонок (P2P E2EE)"><i class="fa-solid fa-phone"></i></button>
               <button class="icon-btn" id="headerVideoCallBtn" onclick="startDirectCall('video')" title="Видеозвонок (P2P E2EE)"><i class="fa-solid fa-video"></i></button>
+              <button class="icon-btn" id="headerSelectMessagesBtn" onclick="toggleSelectionMode()" title="Выбрать сообщения (несколько / все)"><i class="fa-solid fa-list-check"></i></button>
             </div>
           </header>
+
+          <!-- Multiple Messages Selection Bar -->
+          <div class="selection-bar hidden" id="selectionBar">
+            <div class="selection-info">
+              <span id="selectionCountText">Выбрано: 0</span>
+              <button type="button" class="btn btn-outline btn-xs" id="selectAllBtn" onclick="toggleSelectAllMessages()"><i class="fa-solid fa-check-double"></i> Выбрать все</button>
+            </div>
+            <div class="selection-actions">
+              <button type="button" class="btn btn-primary btn-xs" id="forwardSelectedBtn" onclick="forwardSelectedMessages()" disabled title="Переслать выбранные">
+                <i class="fa-solid fa-share"></i> Переслать (<span id="forwardSelectedCountBadge">0</span>)
+              </button>
+              <button type="button" class="btn btn-danger btn-xs" id="deleteSelectedBtn" onclick="deleteSelectedMessages()" disabled title="Удалить выбранные">
+                <i class="fa-solid fa-trash"></i> Удалить (<span id="deleteSelectedCountBadge">0</span>)
+              </button>
+              <button type="button" class="icon-btn selection-close-btn" onclick="exitSelectionMode()" title="Отменить выбор">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+          </div>
 
           <!-- Pinned Message Bar -->
           <div class="pinned-bar hidden" id="pinnedBar">
@@ -936,7 +956,7 @@
     <div class="modal-overlay hidden" id="forwardModal">
       <div class="modal-box modal-md">
         <div class="modal-header">
-          <h3><i class="fa-solid fa-share text-primary"></i> Переслать сообщение</h3>
+          <h3 id="forwardModalTitle"><i class="fa-solid fa-share text-primary"></i> Переслать сообщение</h3>
           <button class="icon-btn" onclick="closeModal('forwardModal')"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="modal-body">

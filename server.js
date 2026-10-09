@@ -1960,6 +1960,74 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('forward_messages', async ({ messageIds, targetChatIds }, callback) => {
+    try {
+      if (!messageIds || !Array.isArray(messageIds) || messageIds.length === 0) {
+        if (callback) callback({ error: 'Не выбраны сообщения' });
+        return;
+      }
+      if (!targetChatIds || !Array.isArray(targetChatIds) || targetChatIds.length === 0) {
+        if (callback) callback({ error: 'Не выбраны получатели' });
+        return;
+      }
+
+      const placeholders = messageIds.map(() => '?').join(',');
+      const origMessages = db.prepare(`SELECT * FROM messages WHERE id IN (${placeholders}) ORDER BY id ASC`).all(...messageIds);
+      if (!origMessages || origMessages.length === 0) {
+        if (callback) callback({ error: 'Сообщения не найдены' });
+        return;
+      }
+
+      const sender = db.prepare('SELECT id, name, username, avatar FROM users WHERE id = ?').get(userId);
+      let totalForwarded = 0;
+
+      for (const origMsg of origMessages) {
+        const origSender = db.prepare('SELECT name, username FROM users WHERE id = ?').get(origMsg.sender_id);
+        const origSenderName = origSender ? origSender.name : 'Пользователь';
+        const textDecrypted = origMsg.type === 'text' && origMsg.text_encrypted ? decryptText(origMsg.text_encrypted) : '';
+        const forwardText = origMsg.type === 'text' ? `↪️ Переслано от ${origSenderName}:\n${textDecrypted}` : (origMsg.text_encrypted ? decryptText(origMsg.text_encrypted) : null);
+        const encryptedForwardText = forwardText ? encryptText(forwardText) : null;
+
+        for (const targetChatId of targetChatIds) {
+          const member = db.prepare('SELECT 1 FROM chat_members WHERE chat_id = ? AND user_id = ?').get(targetChatId, userId);
+          if (!member && user.role !== 'superadmin') continue;
+
+          const info = db.prepare(`
+            INSERT INTO messages (chat_id, sender_id, text_encrypted, reply_to_id, type, file_url, file_name, file_size, file_duration)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(targetChatId, userId, encryptedForwardText, null, origMsg.type, origMsg.file_url, origMsg.file_name, origMsg.file_size, origMsg.file_duration);
+
+          db.prepare('UPDATE chats SET updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(targetChatId);
+
+          const messagePayload = {
+            id: info.lastInsertRowid,
+            chat_id: targetChatId,
+            sender_id: userId,
+            sender,
+            text: forwardText || '',
+            type: origMsg.type,
+            file_url: origMsg.file_url,
+            file_name: origMsg.file_name,
+            file_size: origMsg.file_size,
+            file_duration: origMsg.file_duration,
+            reply_to: null,
+            reactions: {},
+            is_edited: false,
+            created_at: new Date().toISOString()
+          };
+
+          io.to('chat_' + targetChatId).emit('new_message', messagePayload);
+          totalForwarded++;
+        }
+      }
+
+      if (callback) callback({ success: true, count: totalForwarded });
+    } catch (err) {
+      console.error('Socket forward_messages error:', err);
+      if (callback) callback({ error: 'Ошибка пакетной пересылки' });
+    }
+  });
+
   socket.on('edit_message', ({ messageId, chatId, text }, callback) => {
     try {
       const msg = db.prepare('SELECT * FROM messages WHERE id = ? AND chat_id = ?').get(messageId, chatId);
@@ -2001,6 +2069,37 @@ io.on('connection', (socket) => {
       if (callback) callback({ success: true });
     } catch (err) {
       if (callback) callback({ error: 'Ошибка удаления' });
+    }
+  });
+
+  socket.on('delete_messages', ({ messageIds, chatId }, callback) => {
+    try {
+      if (!Array.isArray(messageIds) || messageIds.length === 0) {
+        return callback && callback({ error: 'Не выбраны сообщения для удаления' });
+      }
+
+      const isPrivileged = (user.role === 'superadmin' || user.role === 'admin');
+      const deletedIds = [];
+
+      for (const mid of messageIds) {
+        const msg = db.prepare('SELECT * FROM messages WHERE id = ? AND chat_id = ?').get(mid, chatId);
+        if (msg && (msg.sender_id === userId || isPrivileged)) {
+          db.prepare('DELETE FROM messages WHERE id = ?').run(mid);
+          deletedIds.push(Number(mid));
+        }
+      }
+
+      if (deletedIds.length > 0) {
+        io.to('chat_' + chatId).emit('messages_deleted', {
+          chatId: Number(chatId),
+          messageIds: deletedIds
+        });
+      }
+
+      if (callback) callback({ success: true, count: deletedIds.length });
+    } catch (err) {
+      console.error('delete_messages error:', err);
+      if (callback) callback({ error: 'Ошибка пакетного удаления' });
     }
   });
 
