@@ -538,7 +538,7 @@ function showLocalSystemNotification(msg) {
     const options = {
       body: body || 'Новое входящее сообщение',
       icon: '/icons/icon-192-v30.png',
-      badge: '/icons/icon-192-v30.png',
+      badge: '/icons/badge-monochrome.png',
       tag: 'chat_' + (msg.chat_id || 'direct'),
       renotify: true,
       vibrate: [300, 100, 300],

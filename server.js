@@ -571,7 +571,7 @@ app.post('/api/push/test', authMiddleware, async (req, res) => {
       title: '🔔 Тестовое оповещение GIN-Chat',
       body: 'Поздравляем! Web Push успешно работает на вашем устройстве.',
       icon: '/icons/icon-192-v30.png',
-      badge: '/icons/icon-192-v30.png',
+      badge: '/icons/badge-monochrome.png',
       tag: 'test_push',
       renotify: true,
       data: { url: '/' }
@@ -1848,7 +1848,7 @@ io.on('connection', (socket) => {
                 title: isGroup ? `${chatTitle} (${sender.name})` : sender.name,
                 body: bodyPreview,
                 icon: sender.avatar || '/icons/icon-192.png',
-                badge: '/icons/icon-192.png',
+                badge: '/icons/badge-monochrome.png',
                 tag: `chat_${chatId}`,
                 renotify: true,
                 data: {
@@ -1937,7 +1937,7 @@ io.on('connection', (socket) => {
                 title: isGroup ? `${chatTitle} • ${sender.name}` : sender.name,
                 body: `↪️ Переслано: ${origMsg.type === 'text' ? (textDecrypted || '') : origMsg.type}`,
                 icon: sender.avatar || '/icons/icon-192.png',
-                badge: '/icons/icon-192.png',
+                badge: '/icons/badge-monochrome.png',
                 tag: `chat_${targetChatId}`,
                 renotify: true,
                 data: {
@@ -2058,7 +2058,7 @@ io.on('connection', (socket) => {
       title: `📞 Входящий ${type === 'video' ? 'видеозвонок' : 'аудиозвонок'}`,
       body: `${user.name} (@${user.username}) вызывает вас в GIN-Chat`,
       icon: user.avatar || '/icons/icon-192.png',
-      badge: '/icons/icon-192.png',
+      badge: '/icons/badge-monochrome.png',
       tag: `call_${userId}`,
       urgency: 'high',
       ttl: 45,
