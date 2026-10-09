@@ -293,6 +293,8 @@ function initApp() {
   loadChats().then(() => {
     handleUrlRouting();
   });
+  checkPushStatus();
+  autoSyncPushSubscription();
 }
 
 // ----------------------------------------------------
@@ -310,7 +312,8 @@ function connectSocket() {
   });
 
   socket.on('new_message', (msg) => {
-    if (activeChat && Number(activeChat.id) === Number(msg.chat_id)) {
+    const isCurrentActiveChat = activeChat && Number(activeChat.id) === Number(msg.chat_id);
+    if (isCurrentActiveChat) {
       if (!document.getElementById(`msg-${msg.id}`)) {
         appendMessageToView(msg);
         scrollToBottom();
@@ -319,6 +322,11 @@ function connectSocket() {
     }
     playMessageSound();
     loadChats();
+
+    // Show system notification if window/tab is not active or chat is not active
+    if (document.hidden || !document.hasFocus() || !isCurrentActiveChat) {
+      showLocalSystemNotification(msg);
+    }
   });
 
   socket.on('message_edited', ({ chatId, messageId, text }) => {
@@ -484,11 +492,18 @@ function playMessageSound() {
     // 1. Mobile Vibration (Android / Chrome PWA)
     if ('vibrate' in navigator) {
       try {
-        navigator.vibrate([180, 80, 180]);
+        navigator.vibrate([200, 100, 200]);
       } catch (ve) {}
     }
 
-    // 2. Audible tone via unlocked Web Audio API
+    // 2. Audible tone via HTML5 Audio file
+    try {
+      const msgAudio = new Audio('/sounds/message.wav');
+      msgAudio.volume = 0.85;
+      msgAudio.play().catch(() => {});
+    } catch (ae) {}
+
+    // 3. Web Audio API synthesized backup
     const ctx = getSharedAudioContext();
     if (ctx) {
       if (ctx.state === 'suspended') {
@@ -508,6 +523,39 @@ function playMessageSound() {
     }
   } catch (e) {
     console.warn('playMessageSound error:', e);
+  }
+}
+
+function showLocalSystemNotification(msg) {
+  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+  try {
+    const senderName = msg.sender_name || (msg.user ? msg.user.name : 'GIN-Chat');
+    let body = msg.text || '';
+    if (msg.type === 'voice') body = '🎤 Голосовое сообщение';
+    else if (msg.type === 'image') body = '📷 Фотография';
+    else if (msg.type === 'file') body = `📎 Файл: ${msg.file_name || 'документ'}`;
+
+    const options = {
+      body: body || 'Новое входящее сообщение',
+      icon: '/icons/icon-192-v30.png',
+      badge: '/icons/icon-192-v30.png',
+      tag: 'chat_' + (msg.chat_id || 'direct'),
+      renotify: true,
+      vibrate: [300, 100, 300],
+      data: { url: '/?chat=' + (msg.chat_id || ''), chatId: msg.chat_id }
+    };
+
+    getSwRegistration().then((reg) => {
+      if (reg && reg.showNotification) {
+        reg.showNotification(senderName, options);
+      } else {
+        new Notification(senderName, options);
+      }
+    }).catch(() => {
+      try { new Notification(senderName, options); } catch (e) {}
+    });
+  } catch (err) {
+    console.warn('showLocalSystemNotification non-fatal:', err);
   }
 }
 
@@ -4624,6 +4672,47 @@ async function checkPushStatus() {
     }
   } catch (e) {
     console.error('checkPushStatus error:', e);
+  }
+}
+
+async function autoSyncPushSubscription() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  if (!token || Notification.permission !== 'granted') return;
+
+  try {
+    const reg = await getSwRegistration();
+    if (!reg) return;
+
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      // User has notifications enabled in Android/Browser settings, auto-subscribe!
+      const keyRes = await fetch('/api/push/vapid-public-key');
+      const keyData = await keyRes.json();
+      if (!keyData.publicKey) return;
+      const applicationServerKey = urlBase64ToUint8Array(keyData.publicKey);
+      try {
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey
+        });
+      } catch (subErr) {
+        console.warn('autoSync push subscribe error:', subErr);
+      }
+    }
+
+    if (sub) {
+      await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          subscription: sub.toJSON(),
+          userAgent: navigator.userAgent
+        })
+      });
+      await checkPushStatus();
+    }
+  } catch (err) {
+    console.warn('autoSyncPushSubscription non-fatal:', err);
   }
 }
 
