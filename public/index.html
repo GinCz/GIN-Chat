@@ -7,7 +7,7 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="alternate icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/style.css?v=20261007_v3">
     <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#180a2b">
   <meta name="mobile-web-app-capable" content="yes">
@@ -842,6 +842,21 @@
               <button type="button" class="btn btn-outline" style="flex: 1;" onclick="openWallpaperModalFromProfile()"><i class="fa-solid fa-image text-primary"></i> Фон чата (Обои)</button>
             </div>
             <hr class="form-divider">
+            <h5><i class="fa-solid fa-bell text-warning"></i> Системные Push-оповещения</h5>
+            <div class="push-status-card" style="background: rgba(255,255,255,0.04); padding: 12px 14px; border-radius: 12px; margin-bottom: 16px; border: 1px solid rgba(255,255,255,0.1);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <span style="font-size: 13px; font-weight: 600;"><i class="fa-solid fa-mobile-screen"></i> Статус на устройстве:</span>
+                <span id="pushStatusBadge" class="badge badge-secondary" style="font-size: 11px;">Проверка...</span>
+              </div>
+              <p class="text-muted" style="font-size: 11.5px; margin: 0 0 10px 0; line-height: 1.4;">
+                Мгновенная доставка сообщений и вызовов на iPhone (Safari PWA), Android и ПК, даже при закрытом окне или спящем режиме.
+              </p>
+              <div style="display: flex; gap: 8px;">
+                <button type="button" id="pushEnableBtn" class="btn btn-primary btn-xs" style="flex: 1;" onclick="togglePushSubscription()"><i class="fa-solid fa-bell"></i> Включить Push</button>
+                <button type="button" id="pushTestBtn" class="btn btn-outline btn-xs" onclick="sendTestPushNotification()"><i class="fa-solid fa-paper-plane"></i> Тест</button>
+              </div>
+            </div>
+            <hr class="form-divider">
             <h5>Смена своего пароля (необязательно)</h5>
             <div class="form-group">
               <label>Текущий пароль</label>
@@ -1029,9 +1044,9 @@
             <img src="/favicon.svg" alt="Ninja Logo" style="width: 72px; height: 72px; filter: drop-shadow(0 4px 12px rgba(168, 85, 247, 0.5));">
           </div>
           <h2 style="font-weight: 800; font-size: 22px; margin-bottom: 4px;">GIN-Chat</h2>
-          <div class="badge badge-primary" style="display: inline-block; margin-bottom: 16px; padding: 4px 12px; font-size: 13px; font-weight: 700; border-radius: 20px;">Версия: v028 (0.2.8)</div>
+          <div class="badge badge-primary" style="display: inline-block; margin-bottom: 16px; padding: 4px 12px; font-size: 13px; font-weight: 700; border-radius: 20px;">Версия: v029 (0.2.9)</div>
           <p style="color: var(--text-muted); font-size: 14px; line-height: 1.5; margin-bottom: 16px;">
-            Автономный защищенный мессенджер со сквозным шифрованием <strong>AES-256-GCM</strong> и поддержкой PWA.
+            Автономный защищенный мессенджер со сквозным шифрованием <strong>AES-256-GCM</strong>, WebRTC и поддержкой Web Push.
           </p>
           <div class="about-info-table" style="text-align: left; background: rgba(0,0,0,0.15); border-radius: 12px; padding: 12px 16px; margin-bottom: 20px; font-size: 13px;">
             <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.08);">
@@ -1040,7 +1055,7 @@
             </div>
             <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.08);">
               <span style="color: var(--text-muted);">Сборка:</span>
-              <span>Release v028 • PWA Standalone</span>
+              <span>Release v029 • PWA & Web Push (iOS/Android/Desktop)</span>
             </div>
             <div style="display: flex; justify-content: space-between; padding: 6px 0;">
               <span style="color: var(--text-muted);">Шифрование:</span>
@@ -1144,7 +1159,7 @@
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
-  <script src="/js/app.js"></script>
+  <script src="/js/app.js?v=20261007_v3"></script>
   <!-- PWA Service Worker & Install Handler -->
   <script>
     if ('serviceWorker' in navigator) {

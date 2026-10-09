@@ -309,9 +309,11 @@ function connectSocket() {
   });
 
   socket.on('new_message', (msg) => {
-    if (activeChat && activeChat.id === msg.chat_id) {
-      appendMessageToView(msg);
-      scrollToBottom();
+    if (activeChat && Number(activeChat.id) === Number(msg.chat_id)) {
+      if (!document.getElementById(`msg-${msg.id}`)) {
+        appendMessageToView(msg);
+        scrollToBottom();
+      }
       socket.emit('mark_read', { chatId: msg.chat_id, messageIds: [msg.id] });
     }
     playMessageSound();
@@ -717,33 +719,68 @@ function appendMessageToView(msg) {
         <span class="gif-badge">GIF</span>
       </div>
     `;
-  } else if (msg.type === 'voice') {
+  } else if (msg.type === 'voice' || (msg.type === 'file' && ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac', 'opus', 'webm'].includes(((msg.file_name || '').split('.').pop() || '').toLowerCase()))) {
+    const isVoice = msg.type === 'voice';
+    const title = isVoice ? 'Голосовое сообщение' : escapeHtml(msg.file_name || 'Аудиозапись');
+    const audioUrl = escapeHtml(msg.file_url || '');
+    const audioIcon = isVoice ? 'fa-solid fa-microphone' : 'fa-solid fa-music';
+
     contentHtml += `
-      <div class="msg-voice-box">
-        <button class="voice-play-btn" onclick="togglePlayVoice(this, '${msg.file_url}')"><i class="fa-solid fa-play"></i></button>
-        <div class="voice-progress-container">
-          <div class="voice-waveform"><div class="voice-waveform-fill"></div></div>
-          <div class="voice-time">0:00</div>
+      <div class="msg-audio-card ${isVoice ? 'is-voice' : 'is-music'}" data-audio-url="${audioUrl}">
+        <div class="audio-main-row">
+          <button type="button" class="audio-play-btn" onclick="togglePlayAudio(this, '${audioUrl}')" title="Воспроизвести / Пауза">
+            <i class="fa-solid fa-play"></i>
+          </button>
+          <div class="audio-info-col">
+            <div class="audio-header-row">
+              <span class="audio-title"><i class="${audioIcon}" style="opacity: 0.7; margin-right: 4px; font-size: 11px;"></i>${title}</span>
+              <button type="button" class="audio-speed-btn" onclick="cycleAudioSpeed(this)" title="Скорость воспроизведения">1x</button>
+            </div>
+            <div class="audio-seek-track" onclick="handleAudioSeekClick(event, this, '${audioUrl}')" title="Нажмите для перемотки">
+              <div class="audio-seek-fill"></div>
+              <div class="audio-seek-thumb"></div>
+            </div>
+            <div class="audio-meta-row">
+              <span class="audio-current-time">0:00</span>
+              <div class="audio-rewind-controls">
+                <button type="button" class="audio-seek-step-btn" onclick="seekAudioRelative(this, -5)" title="Назад на 5 секунд">
+                  <i class="fa-solid fa-rotate-left"></i> 5с
+                </button>
+                <button type="button" class="audio-seek-step-btn" onclick="seekAudioRelative(this, 5)" title="Вперёд на 5 секунд">
+                  5с <i class="fa-solid fa-rotate-right"></i>
+                </button>
+              </div>
+              <span class="audio-total-time">${msg.file_size ? formatFileSize(msg.file_size) : '0:00'}</span>
+            </div>
+          </div>
         </div>
       </div>
     `;
   } else if (msg.type === 'file') {
     const fileMeta = getFileInfo(msg.file_name);
+    const safeUrl = escapeHtml(msg.file_url || '');
+    const safeName = escapeHtml(msg.file_name || 'Файл');
     contentHtml += `
       <div class="msg-file-card">
-        <div class="msg-file-badge" style="background: ${fileMeta.bg}; color: ${fileMeta.color}; border: 1px solid ${fileMeta.color}40;">
+        <div class="msg-file-badge" style="background: ${fileMeta.bg}; color: ${fileMeta.color}; border: 1px solid ${fileMeta.color}50;">
           <i class="${fileMeta.icon}"></i>
           <span class="msg-file-ext-tag">${fileMeta.label}</span>
         </div>
         <div class="msg-file-details">
-          <div class="msg-file-title" title="${escapeHtml(msg.file_name)}">${escapeHtml(msg.file_name)}</div>
+          <div class="msg-file-title" title="${safeName}">${safeName}</div>
           <div class="msg-file-meta-row">
             <span class="msg-file-size-badge">${formatFileSize(msg.file_size)}</span>
+            <span class="msg-file-ext-pill" style="color: ${fileMeta.color};">${fileMeta.label}</span>
           </div>
         </div>
-        <a href="${msg.file_url}" target="_blank" download="${escapeHtml(msg.file_name)}" class="btn-file-open" title="Открыть или скачать файл">
-          <i class="fa-solid fa-arrow-up-right-from-square"></i> Открыть
-        </a>
+        <div class="msg-file-actions">
+          <a href="${safeUrl}" target="_blank" download="${safeName}" class="btn-file-download" title="Скачать файл">
+            <i class="fa-solid fa-download"></i> Скачать
+          </a>
+          <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="btn-file-open" title="Открыть файл">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i> Открыть
+          </a>
+        </div>
       </div>
     `;
   }
@@ -780,34 +817,43 @@ function getFileInfo(fileName) {
   const parts = name.split('.');
   const ext = parts.length > 1 ? parts.pop().toLowerCase() : '';
 
+  if (['exe', 'msi', 'bat', 'cmd'].includes(ext)) {
+    return { icon: 'fa-brands fa-windows', color: '#00a4ef', label: ext ? ext.toUpperCase() : 'EXE', bg: 'linear-gradient(135deg, rgba(0, 164, 239, 0.25), rgba(0, 120, 215, 0.15))' };
+  }
+  if (['apk', 'xapk'].includes(ext)) {
+    return { icon: 'fa-brands fa-android', color: '#10b981', label: 'APK', bg: 'linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(5, 150, 105, 0.15))' };
+  }
+  if (['iso', 'img', 'dmg'].includes(ext)) {
+    return { icon: 'fa-solid fa-compact-disc', color: '#8b5cf6', label: ext.toUpperCase(), bg: 'linear-gradient(135deg, rgba(139, 92, 246, 0.25), rgba(124, 58, 237, 0.15))' };
+  }
   if (['pdf'].includes(ext)) {
-    return { icon: 'fa-solid fa-file-pdf', color: '#ef4444', label: 'PDF', bg: 'rgba(239, 68, 68, 0.16)' };
+    return { icon: 'fa-solid fa-file-pdf', color: '#ef4444', label: 'PDF', bg: 'linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(185, 28, 28, 0.15))' };
   }
   if (['doc', 'docx', 'rtf', 'odt', 'txt'].includes(ext)) {
-    return { icon: 'fa-solid fa-file-word', color: '#3b82f6', label: ext ? ext.toUpperCase() : 'DOC', bg: 'rgba(59, 130, 246, 0.16)' };
+    return { icon: 'fa-solid fa-file-word', color: '#3b82f6', label: ext ? ext.toUpperCase() : 'DOC', bg: 'linear-gradient(135deg, rgba(59, 130, 246, 0.25), rgba(29, 78, 216, 0.15))' };
   }
   if (['xls', 'xlsx', 'csv'].includes(ext)) {
-    return { icon: 'fa-solid fa-file-excel', color: '#10b981', label: ext.toUpperCase(), bg: 'rgba(16, 185, 129, 0.16)' };
+    return { icon: 'fa-solid fa-file-excel', color: '#10b981', label: ext.toUpperCase(), bg: 'linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(4, 120, 87, 0.15))' };
   }
   if (['ppt', 'pptx'].includes(ext)) {
-    return { icon: 'fa-solid fa-file-powerpoint', color: '#f97316', label: ext.toUpperCase(), bg: 'rgba(249, 115, 22, 0.16)' };
+    return { icon: 'fa-solid fa-file-powerpoint', color: '#f97316', label: ext.toUpperCase(), bg: 'linear-gradient(135deg, rgba(249, 115, 22, 0.25), rgba(194, 65, 12, 0.15))' };
   }
   if (['zip', 'rar', '7z', 'tar', 'gz', 'bz2'].includes(ext)) {
-    return { icon: 'fa-solid fa-file-zipper', color: '#f59e0b', label: ext.toUpperCase(), bg: 'rgba(245, 158, 11, 0.16)' };
+    return { icon: 'fa-solid fa-file-zipper', color: '#f59e0b', label: ext.toUpperCase(), bg: 'linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(180, 83, 9, 0.15))' };
   }
   if (['js', 'ts', 'py', 'json', 'html', 'css', 'php', 'sh', 'sql', 'cpp', 'c', 'yml', 'yaml'].includes(ext)) {
-    return { icon: 'fa-solid fa-file-code', color: '#a855f7', label: ext.toUpperCase(), bg: 'rgba(168, 85, 247, 0.16)' };
+    return { icon: 'fa-solid fa-file-code', color: '#a855f7', label: ext.toUpperCase(), bg: 'linear-gradient(135deg, rgba(168, 85, 247, 0.25), rgba(126, 34, 206, 0.15))' };
   }
   if (['mp4', 'mkv', 'avi', 'mov', 'webm'].includes(ext)) {
-    return { icon: 'fa-solid fa-file-video', color: '#ec4899', label: ext.toUpperCase(), bg: 'rgba(236, 72, 153, 0.16)' };
+    return { icon: 'fa-solid fa-file-video', color: '#ec4899', label: ext.toUpperCase(), bg: 'linear-gradient(135deg, rgba(236, 72, 153, 0.25), rgba(190, 24, 93, 0.15))' };
   }
-  if (['mp3', 'wav', 'ogg', 'flac', 'm4a'].includes(ext)) {
-    return { icon: 'fa-solid fa-file-audio', color: '#06b6d4', label: ext.toUpperCase(), bg: 'rgba(6, 182, 212, 0.16)' };
+  if (['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac', 'opus'].includes(ext)) {
+    return { icon: 'fa-solid fa-file-audio', color: '#06b6d4', label: ext.toUpperCase(), bg: 'linear-gradient(135deg, rgba(6, 182, 212, 0.25), rgba(14, 116, 144, 0.15))' };
   }
   if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext)) {
-    return { icon: 'fa-solid fa-file-image', color: '#38bdf8', label: ext.toUpperCase(), bg: 'rgba(56, 189, 248, 0.16)' };
+    return { icon: 'fa-solid fa-file-image', color: '#38bdf8', label: ext.toUpperCase(), bg: 'linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(2, 132, 199, 0.15))' };
   }
-  return { icon: 'fa-solid fa-file-lines', color: '#94a3b8', label: ext ? ext.toUpperCase() : 'DOC', bg: 'rgba(148, 163, 184, 0.16)' };
+  return { icon: 'fa-solid fa-file-lines', color: '#94a3b8', label: ext ? ext.toUpperCase() : 'FILE', bg: 'linear-gradient(135deg, rgba(148, 163, 184, 0.25), rgba(71, 85, 105, 0.15))' };
 }
 
 function formatMessageText(text) {
@@ -899,13 +945,24 @@ function sendMessage() {
     return;
   }
 
+  const currentChatId = activeChat.id;
   socket.emit('send_message', {
-    chatId: activeChat.id,
+    chatId: currentChatId,
     text,
     type: 'text',
     replyToId: replyMessage ? replyMessage.id : null
   }, (res) => {
-    if (res && res.error) alert(res.error);
+    if (res && res.error) {
+      alert(res.error);
+      return;
+    }
+    if (res && res.message && activeChat && Number(activeChat.id) === Number(res.message.chat_id)) {
+      if (!document.getElementById(`msg-${res.message.id}`)) {
+        appendMessageToView(res.message);
+        scrollToBottom();
+      }
+      loadChats();
+    }
   });
 
   input.value = '';
@@ -1193,37 +1250,167 @@ function stopAndSendVoice() {
   document.getElementById('voiceBtn').classList.remove('hidden');
 }
 
-let activeAudio = null;
-function togglePlayVoice(btn, url) {
-  if (activeAudio && activeAudio.src.endsWith(url) && !activeAudio.paused) {
-    activeAudio.pause();
-    btn.innerHTML = '<i class="fa-solid fa-play"></i>';
-    return;
+// ----------------------------------------------------
+// ADVANCED AUDIO & VOICE PLAYER CONTROLLER
+// ----------------------------------------------------
+
+let globalAudioPlayer = {
+  audio: null,
+  currentUrl: null,
+  currentBtn: null,
+  currentContainer: null,
+  playbackRate: 1.0
+};
+
+function formatAudioTime(seconds) {
+  if (isNaN(seconds) || seconds === Infinity || seconds < 0) return '0:00';
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+function updateAudioProgressUI(container, currentTime, duration) {
+  if (!container) return;
+  const fill = container.querySelector('.audio-seek-fill');
+  const thumb = container.querySelector('.audio-seek-thumb');
+  const currentTimeEl = container.querySelector('.audio-current-time');
+  const totalTimeEl = container.querySelector('.audio-total-time');
+
+  const dur = duration && !isNaN(duration) ? duration : 0;
+  const cur = currentTime && !isNaN(currentTime) ? currentTime : 0;
+  const ratio = dur > 0 ? Math.min(100, Math.max(0, (cur / dur) * 100)) : 0;
+
+  if (fill) fill.style.width = `${ratio}%`;
+  if (thumb) thumb.style.left = `${ratio}%`;
+  if (currentTimeEl) currentTimeEl.textContent = formatAudioTime(cur);
+  if (totalTimeEl && dur > 0) totalTimeEl.textContent = formatAudioTime(dur);
+}
+
+function resetPreviousAudioUI() {
+  if (globalAudioPlayer.currentBtn) {
+    globalAudioPlayer.currentBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
+    globalAudioPlayer.currentBtn.classList.remove('playing');
+  }
+  if (globalAudioPlayer.currentContainer) {
+    globalAudioPlayer.currentContainer.classList.remove('is-playing');
+  }
+}
+
+function togglePlayAudio(btn, url, startRatio = null) {
+  const container = btn.closest('.msg-audio-card, .msg-voice-box');
+
+  // If clicking play/pause on currently active audio
+  if (globalAudioPlayer.currentUrl === url && globalAudioPlayer.audio) {
+    if (!globalAudioPlayer.audio.paused) {
+      globalAudioPlayer.audio.pause();
+      btn.innerHTML = '<i class="fa-solid fa-play"></i>';
+      btn.classList.remove('playing');
+      if (container) container.classList.remove('is-playing');
+      return;
+    } else {
+      globalAudioPlayer.audio.playbackRate = globalAudioPlayer.playbackRate;
+      globalAudioPlayer.audio.play();
+      btn.innerHTML = '<i class="fa-solid fa-pause"></i>';
+      btn.classList.add('playing');
+      if (container) container.classList.add('is-playing');
+      return;
+    }
   }
 
-  if (activeAudio) {
-    activeAudio.pause();
+  // Stop previous audio if playing
+  if (globalAudioPlayer.audio) {
+    globalAudioPlayer.audio.pause();
+    resetPreviousAudioUI();
   }
 
-  activeAudio = new Audio(url);
-  const container = btn.closest('.msg-voice-box');
-  const fill = container.querySelector('.voice-waveform-fill');
-  const timeLabel = container.querySelector('.voice-time');
+  // Create new Audio instance
+  const audio = new Audio(url);
+  audio.playbackRate = globalAudioPlayer.playbackRate;
+  globalAudioPlayer.audio = audio;
+  globalAudioPlayer.currentUrl = url;
+  globalAudioPlayer.currentBtn = btn;
+  globalAudioPlayer.currentContainer = container;
 
   btn.innerHTML = '<i class="fa-solid fa-pause"></i>';
-  activeAudio.play();
+  btn.classList.add('playing');
+  if (container) container.classList.add('is-playing');
 
-  activeAudio.ontimeupdate = () => {
-    const prog = (activeAudio.currentTime / activeAudio.duration) * 100;
-    fill.style.width = prog + '%';
-    const s = Math.floor(activeAudio.currentTime);
-    timeLabel.innerText = `0:${String(s).padStart(2, '0')}`;
-  };
+  audio.addEventListener('loadedmetadata', () => {
+    if (startRatio !== null && audio.duration) {
+      audio.currentTime = startRatio * audio.duration;
+    }
+    updateAudioProgressUI(container, audio.currentTime, audio.duration);
+  });
 
-  activeAudio.onended = () => {
+  audio.addEventListener('timeupdate', () => {
+    updateAudioProgressUI(container, audio.currentTime, audio.duration);
+  });
+
+  audio.addEventListener('ended', () => {
     btn.innerHTML = '<i class="fa-solid fa-play"></i>';
-    fill.style.width = '0%';
-  };
+    btn.classList.remove('playing');
+    if (container) {
+      container.classList.remove('is-playing');
+      updateAudioProgressUI(container, 0, audio.duration);
+    }
+  });
+
+  audio.addEventListener('error', () => {
+    btn.innerHTML = '<i class="fa-solid fa-play"></i>';
+    btn.classList.remove('playing');
+    if (container) container.classList.remove('is-playing');
+  });
+
+  audio.play().catch(e => {
+    console.warn("Audio play error:", e);
+    btn.innerHTML = '<i class="fa-solid fa-play"></i>';
+    btn.classList.remove('playing');
+    if (container) container.classList.remove('is-playing');
+  });
+}
+
+function handleAudioSeekClick(e, trackEl, url) {
+  const container = trackEl.closest('.msg-audio-card, .msg-voice-box');
+  const rect = trackEl.getBoundingClientRect();
+  const clickX = e.clientX - rect.left;
+  const ratio = Math.max(0, Math.min(1, clickX / rect.width));
+
+  if (globalAudioPlayer.currentUrl === url && globalAudioPlayer.audio && globalAudioPlayer.audio.duration) {
+    globalAudioPlayer.audio.currentTime = ratio * globalAudioPlayer.audio.duration;
+    updateAudioProgressUI(container, globalAudioPlayer.audio.currentTime, globalAudioPlayer.audio.duration);
+  } else {
+    const playBtn = container.querySelector('.audio-play-btn');
+    if (playBtn) togglePlayAudio(playBtn, url, ratio);
+  }
+}
+
+function seekAudioRelative(btn, offsetSeconds) {
+  const container = btn.closest('.msg-audio-card, .msg-voice-box');
+  if (globalAudioPlayer.audio && globalAudioPlayer.currentContainer === container) {
+    const dur = globalAudioPlayer.audio.duration || 0;
+    const newTime = Math.max(0, Math.min(dur, globalAudioPlayer.audio.currentTime + offsetSeconds));
+    globalAudioPlayer.audio.currentTime = newTime;
+    updateAudioProgressUI(container, newTime, dur);
+  }
+}
+
+function cycleAudioSpeed(btn) {
+  const rates = [1.0, 1.5, 2.0];
+  const currentIdx = rates.indexOf(globalAudioPlayer.playbackRate);
+  const nextIdx = (currentIdx + 1) % rates.length;
+  globalAudioPlayer.playbackRate = rates[nextIdx];
+
+  document.querySelectorAll('.audio-speed-btn').forEach(b => {
+    b.textContent = `${globalAudioPlayer.playbackRate}x`;
+  });
+
+  if (globalAudioPlayer.audio) {
+    globalAudioPlayer.audio.playbackRate = globalAudioPlayer.playbackRate;
+  }
+}
+
+function togglePlayVoice(btn, url) {
+  togglePlayAudio(btn, url);
 }
 
 // ----------------------------------------------------
@@ -2662,6 +2849,7 @@ function openProfileModal() {
 
   updateAvatarElement('profileAvatarPreview', currentUser.avatar, currentUser.name, 'avatar-lg');
   document.getElementById('profileModal').classList.remove('hidden');
+  checkPushStatus();
 }
 
 async function saveProfile(e) {
@@ -4251,3 +4439,158 @@ async function leaveCurrentGroup() {
     alert('Сетевая ошибка при выходе из группы');
   }
 }
+
+// ----------------------------------------------------
+// WEB PUSH NOTIFICATIONS CLIENT (iOS Safari / Android / Desktop)
+// ----------------------------------------------------
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
+async function getSwRegistration() {
+  if (!('serviceWorker' in navigator)) return null;
+  try {
+    return await navigator.serviceWorker.ready;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function checkPushStatus() {
+  const badge = document.getElementById('pushStatusBadge');
+  const btn = document.getElementById('pushEnableBtn');
+  if (!badge || !btn) return;
+
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    badge.className = 'badge badge-secondary';
+    badge.innerText = 'Не поддерживается';
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-ban"></i> Не поддерживается';
+    return;
+  }
+
+  if (Notification.permission === 'denied') {
+    badge.className = 'badge badge-danger';
+    badge.innerText = 'Заблокировано';
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-lock"></i> Разрешите в браузере';
+    return;
+  }
+
+  try {
+    const reg = await getSwRegistration();
+    if (!reg) return;
+    const sub = await reg.pushManager.getSubscription();
+    if (sub && Notification.permission === 'granted') {
+      badge.className = 'badge badge-success';
+      badge.innerText = 'Включено (Активно)';
+      btn.className = 'btn btn-outline btn-xs';
+      btn.innerHTML = '<i class="fa-solid fa-bell-slash"></i> Отключить Push';
+      btn.disabled = false;
+    } else {
+      badge.className = 'badge badge-warning';
+      badge.innerText = 'Выключено';
+      btn.className = 'btn btn-primary btn-xs';
+      btn.innerHTML = '<i class="fa-solid fa-bell"></i> Включить Push';
+      btn.disabled = false;
+    }
+  } catch (e) {
+    console.error('checkPushStatus error:', e);
+  }
+}
+
+async function togglePushSubscription() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    alert('Ваш браузер или устройство не поддерживает Push Notifications API.\nНа iPhone убедитесь, что приложение добавлено на экран «Домой» через Safari (iOS 16.4+).');
+    return;
+  }
+
+  const reg = await getSwRegistration();
+  if (!reg) {
+    alert('Служба Service Worker еще инициализируется. Пожалуйста, подождите или перезагрузите страницу.');
+    return;
+  }
+
+  try {
+    const existingSub = await reg.pushManager.getSubscription();
+    if (existingSub) {
+      // Unsubscribe
+      await existingSub.unsubscribe();
+      await fetch('/api/push/unsubscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ endpoint: existingSub.endpoint })
+      });
+      showToast('🔕 Push-оповещения отключены');
+      await checkPushStatus();
+      return;
+    }
+
+    // Subscribe: trigger permission prompt
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') {
+      alert('Разрешение на отправку уведомлений не было предоставлено в браузере.');
+      await checkPushStatus();
+      return;
+    }
+
+    const keyRes = await fetch('/api/push/vapid-public-key');
+    const keyData = await keyRes.json();
+    if (!keyData.publicKey) {
+      alert('Ошибка получения VAPID ключа с сервера');
+      return;
+    }
+
+    const applicationServerKey = urlBase64ToUint8Array(keyData.publicKey);
+    const newSub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey
+    });
+
+    const subJson = newSub.toJSON();
+    const saveRes = await fetch('/api/push/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        subscription: subJson,
+        userAgent: navigator.userAgent
+      })
+    });
+
+    if (saveRes.ok) {
+      showToast('🔔 Push-оповещения успешно включены!');
+      await checkPushStatus();
+    } else {
+      alert('Не удалось зарегистрировать Push-подписку на сервере');
+    }
+  } catch (err) {
+    console.error('togglePushSubscription error:', err);
+    alert('Ошибка при настройке Push-оповещений: ' + err.message);
+  }
+}
+
+async function sendTestPushNotification() {
+  try {
+    const res = await fetch('/api/push/test', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const data = await res.json();
+    if (res.ok) {
+      showToast('🚀 Тестовый Push отправлен! Проверьте шторку уведомлений.');
+    } else {
+      alert(data.error || 'Ошибка отправки тестового пуша. Убедитесь, что Push включен.');
+    }
+  } catch (e) {
+    alert('Сетевая ошибка при отправке теста');
+  }
+}
+
