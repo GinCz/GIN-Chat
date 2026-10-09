@@ -563,16 +563,20 @@ app.post('/api/push/unsubscribe', authMiddleware, (req, res) => {
 // Send Test Push Notification
 app.post('/api/push/test', authMiddleware, async (req, res) => {
   try {
+    const subs = db.prepare('SELECT * FROM push_subscriptions WHERE user_id = ?').all(req.user.id);
+    if (!subs || subs.length === 0) {
+      return res.status(400).json({ error: 'Нет активных Push-подписок на сервере. Пожалуйста, сначала включите Push на этом устройстве.' });
+    }
     await sendPushToUser(req.user.id, {
       title: '🔔 Тестовое оповещение GIN-Chat',
       body: 'Поздравляем! Web Push успешно работает на вашем устройстве.',
-      icon: '/icons/icon-192.png',
-      badge: '/icons/icon-192.png',
+      icon: '/icons/icon-192-v30.png',
+      badge: '/icons/icon-192-v30.png',
       tag: 'test_push',
       renotify: true,
       data: { url: '/' }
     });
-    res.json({ success: true, message: 'Тестовый пуш отправлен!' });
+    res.json({ success: true, message: `Тестовый пуш отправлен на ${subs.length} устр.!` });
   } catch (err) {
     console.error('Push test error:', err);
     res.status(500).json({ error: 'Ошибка отправки тестового пуша' });

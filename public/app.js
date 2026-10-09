@@ -459,21 +459,56 @@ function connectSocket() {
   socket.on('call_ice_candidate', handleCallIceCandidate);
 }
 
+let globalAudioCtx = null;
+function getSharedAudioContext() {
+  if (!globalAudioCtx) {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (AudioCtx) globalAudioCtx = new AudioCtx();
+  }
+  if (globalAudioCtx && globalAudioCtx.state === 'suspended') {
+    globalAudioCtx.resume().catch(() => {});
+  }
+  return globalAudioCtx;
+}
+
+if (typeof window !== 'undefined') {
+  ['click', 'touchstart', 'touchend', 'keydown'].forEach((eventName) => {
+    window.addEventListener(eventName, () => {
+      getSharedAudioContext();
+    }, { passive: true });
+  });
+}
+
 function playMessageSound() {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(587.33, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.1);
-    gain.gain.setValueAtTime(0.2, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.2);
-  } catch (e) {}
+    // 1. Mobile Vibration (Android / Chrome PWA)
+    if ('vibrate' in navigator) {
+      try {
+        navigator.vibrate([180, 80, 180]);
+      } catch (ve) {}
+    }
+
+    // 2. Audible tone via unlocked Web Audio API
+    const ctx = getSharedAudioContext();
+    if (ctx) {
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(659.25, ctx.currentTime);
+      osc.frequency.setValueAtTime(880.00, ctx.currentTime + 0.08);
+      gain.gain.setValueAtTime(0.35, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.25);
+    }
+  } catch (e) {
+    console.warn('playMessageSound error:', e);
+  }
 }
 
 // ----------------------------------------------------
@@ -3133,7 +3168,13 @@ function closeAvatarCropper() {
 // ----------------------------------------------------
 
 function toggleMainMenu() {
-  document.getElementById('mainMenu').classList.toggle('hidden');
+  const m = document.getElementById('mainMenu');
+  if (m) {
+    m.classList.toggle('hidden');
+    if (!m.classList.contains('hidden')) {
+      checkPushStatus();
+    }
+  }
 }
 
 function closeMainMenu() {
@@ -4507,30 +4548,68 @@ function urlBase64ToUint8Array(base64String) {
 async function getSwRegistration() {
   if (!('serviceWorker' in navigator)) return null;
   try {
-    return await navigator.serviceWorker.ready;
+    const reg = await navigator.serviceWorker.getRegistration();
+    if (reg) return reg;
+    return await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise((resolve) => setTimeout(() => resolve(null), 2500))
+    ]);
   } catch (e) {
     return null;
   }
 }
 
-async function checkPushStatus() {
+function updatePushStatusUI(status) {
   const badge = document.getElementById('pushStatusBadge');
   const btn = document.getElementById('pushEnableBtn');
-  if (!badge || !btn) return;
+  const menuBadge = document.getElementById('mainMenuPushBadge');
+  const menuIcon = document.getElementById('mainMenuPushIcon');
+  const menuText = document.getElementById('mainMenuPushText');
 
+  if (status === 'unsupported') {
+    if (badge) { badge.className = 'badge badge-secondary'; badge.innerText = 'Не поддерживается'; }
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-ban"></i> Не поддерживается'; }
+    if (menuBadge) { menuBadge.className = 'badge badge-secondary'; menuBadge.innerText = 'Н/Д'; }
+    if (menuIcon) { menuIcon.className = 'fa-solid fa-ban text-secondary'; }
+    if (menuText) { menuText.innerText = 'Push: Не поддерживается'; }
+  } else if (status === 'denied') {
+    if (badge) { badge.className = 'badge badge-danger'; badge.innerText = 'Заблокировано'; }
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-lock"></i> Разрешите в браузере'; }
+    if (menuBadge) { menuBadge.className = 'badge badge-danger'; menuBadge.innerText = 'Блок'; }
+    if (menuIcon) { menuIcon.className = 'fa-solid fa-lock text-danger'; }
+    if (menuText) { menuText.innerText = 'Push: Разрешите в браузере'; }
+  } else if (status === 'granted') {
+    if (badge) { badge.className = 'badge badge-success'; badge.innerText = 'Включено (Активно)'; }
+    if (btn) {
+      btn.className = 'btn btn-outline btn-xs';
+      btn.innerHTML = '<i class="fa-solid fa-bell-slash"></i> Отключить Push';
+      btn.disabled = false;
+    }
+    if (menuBadge) { menuBadge.className = 'badge badge-success'; menuBadge.innerText = 'Вкл'; }
+    if (menuIcon) { menuIcon.className = 'fa-solid fa-bell text-success'; }
+    if (menuText) { menuText.innerText = 'Уведомления (Вкл)'; }
+  } else {
+    // off
+    if (badge) { badge.className = 'badge badge-warning'; badge.innerText = 'Выключено'; }
+    if (btn) {
+      btn.className = 'btn btn-primary btn-xs';
+      btn.innerHTML = '<i class="fa-solid fa-bell"></i> Включить Push';
+      btn.disabled = false;
+    }
+    if (menuBadge) { menuBadge.className = 'badge badge-warning'; menuBadge.innerText = 'Выкл'; }
+    if (menuIcon) { menuIcon.className = 'fa-solid fa-bell-slash text-warning'; }
+    if (menuText) { menuText.innerText = 'Уведомления (Выкл)'; }
+  }
+}
+
+async function checkPushStatus() {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    badge.className = 'badge badge-secondary';
-    badge.innerText = 'Не поддерживается';
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fa-solid fa-ban"></i> Не поддерживается';
+    updatePushStatusUI('unsupported');
     return;
   }
 
   if (Notification.permission === 'denied') {
-    badge.className = 'badge badge-danger';
-    badge.innerText = 'Заблокировано';
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fa-solid fa-lock"></i> Разрешите в браузере';
+    updatePushStatusUI('denied');
     return;
   }
 
@@ -4539,17 +4618,9 @@ async function checkPushStatus() {
     if (!reg) return;
     const sub = await reg.pushManager.getSubscription();
     if (sub && Notification.permission === 'granted') {
-      badge.className = 'badge badge-success';
-      badge.innerText = 'Включено (Активно)';
-      btn.className = 'btn btn-outline btn-xs';
-      btn.innerHTML = '<i class="fa-solid fa-bell-slash"></i> Отключить Push';
-      btn.disabled = false;
+      updatePushStatusUI('granted');
     } else {
-      badge.className = 'badge badge-warning';
-      badge.innerText = 'Выключено';
-      btn.className = 'btn btn-primary btn-xs';
-      btn.innerHTML = '<i class="fa-solid fa-bell"></i> Включить Push';
-      btn.disabled = false;
+      updatePushStatusUI('off');
     }
   } catch (e) {
     console.error('checkPushStatus error:', e);
@@ -4562,22 +4633,29 @@ async function togglePushSubscription() {
     return;
   }
 
-  const reg = await getSwRegistration();
+  let reg = await getSwRegistration();
   if (!reg) {
-    alert('Служба Service Worker еще инициализируется. Пожалуйста, подождите или перезагрузите страницу.');
-    return;
+    try {
+      reg = await navigator.serviceWorker.register('/sw.js');
+      await navigator.serviceWorker.ready;
+    } catch (e) {
+      alert('Служба Service Worker еще инициализируется. Пожалуйста, подождите или перезагрузите страницу.');
+      return;
+    }
   }
 
   try {
     const existingSub = await reg.pushManager.getSubscription();
     if (existingSub) {
-      // Unsubscribe
+      // Toggle to unsubscribe
       await existingSub.unsubscribe();
-      await fetch('/api/push/unsubscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ endpoint: existingSub.endpoint })
-      });
+      try {
+        await fetch('/api/push/unsubscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ endpoint: existingSub.endpoint })
+        });
+      } catch (netErr) {}
       showToast('🔕 Push-оповещения отключены');
       await checkPushStatus();
       return;
@@ -4599,10 +4677,22 @@ async function togglePushSubscription() {
     }
 
     const applicationServerKey = urlBase64ToUint8Array(keyData.publicKey);
-    const newSub = await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey
-    });
+    let newSub;
+    try {
+      newSub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey
+      });
+    } catch (subErr) {
+      console.warn('Initial pushManager.subscribe failed, trying clean attempt:', subErr);
+      // If previous subscription orphaned or key changed, clear and retry
+      const staleSub = await reg.pushManager.getSubscription();
+      if (staleSub) await staleSub.unsubscribe();
+      newSub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey
+      });
+    }
 
     const subJson = newSub.toJSON();
     const saveRes = await fetch('/api/push/subscribe', {
@@ -4614,15 +4704,18 @@ async function togglePushSubscription() {
       })
     });
 
+    const saveJson = await saveRes.json().catch(() => ({}));
     if (saveRes.ok) {
       showToast('🔔 Push-оповещения успешно включены!');
       await checkPushStatus();
     } else {
-      alert('Не удалось зарегистрировать Push-подписку на сервере');
+      alert('Не удалось зарегистрировать Push на сервере: ' + (saveJson.error || 'Ошибка сервера'));
+      await checkPushStatus();
     }
   } catch (err) {
     console.error('togglePushSubscription error:', err);
-    alert('Ошибка при настройке Push-оповещений: ' + err.message);
+    alert('Ошибка при настройке Push-оповещений: ' + (err.message || err.name || 'неизвестная ошибка'));
+    await checkPushStatus();
   }
 }
 

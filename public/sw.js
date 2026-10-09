@@ -1,9 +1,9 @@
 // ==============================================================================
 // GIN-Chat Service Worker (PWA & Web Push Notification Handler)
-// Version: v0.3.2
+// Version: v0.3.3
 // ==============================================================================
 
-const CACHE_NAME = "gin-chat-v032";
+const CACHE_NAME = "gin-chat-v033";
 const ASSETS_TO_CACHE = [
   "/",
   "/index.html",
@@ -89,13 +89,13 @@ self.addEventListener("push", (event) => {
 
   const options = {
     body: data.body || "Новое сообщение в чате",
-    icon: data.icon || "/icons/icon-192.png",
-    badge: data.badge || "/icons/icon-192.png",
+    icon: data.icon || "/icons/icon-192-v30.png",
+    badge: data.badge || "/icons/icon-192-v30.png",
     tag: data.tag || (isCall ? "call_incoming" : "gin-chat-msg"),
     renotify: data.renotify !== undefined ? data.renotify : true,
     requireInteraction: isCall, // keep on screen for incoming call
     silent: false,
-    vibrate: isCall ? [300, 100, 300, 100, 300, 100, 400] : [200, 100, 200],
+    vibrate: isCall ? [300, 100, 300, 100, 300, 100, 400] : [300, 100, 300],
     data: data.data || { url: "/" }
   };
 
