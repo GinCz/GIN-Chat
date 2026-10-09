@@ -610,16 +610,12 @@ async function selectChat(chatId) {
       document.getElementById('pinnedBar').classList.add('hidden');
     }
 
-    if (activeChat.type === 'group') {
-      const slug = encodeURIComponent((activeChat.name || 'group').trim().replace(/[\s\/]+/g, '_'));
-      const code = activeChat.invite_code || activeChat.id;
-      if (window.location.hash !== `#/group/${code}/${slug}`) {
-        history.replaceState({ chatId }, '', `#/group/${code}/${slug}`);
-      }
-    } else {
-      if (window.location.hash !== '#/c/' + chatId) {
-        history.replaceState({ chatId }, '', '#/c/' + chatId);
-      }
+    const targetHash = activeChat.type === 'group'
+      ? `#/group/${activeChat.invite_code || activeChat.id}/${encodeURIComponent((activeChat.name || 'group').trim().replace(/[\s\/]+/g, '_'))}`
+      : `#/c/${chatId}`;
+
+    if (window.location.hash !== targetHash) {
+      history.pushState({ view: 'chat', chatId }, '', targetHash);
     }
 
     renderChatsList();
@@ -886,8 +882,18 @@ function scrollToBottom() {
   el.scrollTop = el.scrollHeight;
 }
 
-function backToChatsList() {
+function backToChatsList(triggerHistory = true) {
   document.body.classList.remove('mobile-chat-open');
+  activeChat = null;
+  const activeChatEl = document.getElementById('activeChatContainer');
+  if (activeChatEl) activeChatEl.classList.add('hidden');
+  const emptyChatEl = document.getElementById('emptyChatState');
+  if (emptyChatEl) emptyChatEl.classList.remove('hidden');
+  
+  if (triggerHistory && window.location.hash && window.location.hash !== '#/' && window.location.hash !== '') {
+    history.pushState({ view: 'list' }, '', '#/');
+  }
+  renderChatsList();
 }
 
 // ----------------------------------------------------
@@ -3508,6 +3514,48 @@ async function handleUrlRouting() {
 
 window.addEventListener('hashchange', () => {
   handleUrlRouting();
+});
+
+// Android & Mobile Back Button Navigation Handler (popstate)
+window.addEventListener('popstate', (event) => {
+  // 1. If any modal dialog is currently open, close it first
+  const openModals = document.querySelectorAll('.modal-overlay:not(.hidden)');
+  if (openModals.length > 0) {
+    openModals.forEach(m => {
+      if (m.id) closeModal(m.id);
+    });
+    return;
+  }
+
+  // 2. If fullscreen media lightbox is open, close lightbox
+  const lightbox = document.getElementById('lightboxOverlay');
+  if (lightbox && !lightbox.classList.contains('hidden')) {
+    closeLightbox();
+    return;
+  }
+
+  // 3. If emoji picker or GIF picker is open, close it
+  const emojiPicker = document.getElementById('emojiPicker');
+  if (emojiPicker && !emojiPicker.classList.contains('hidden')) {
+    emojiPicker.classList.add('hidden');
+    return;
+  }
+  const gifPicker = document.getElementById('gifPicker');
+  if (gifPicker && !gifPicker.classList.contains('hidden')) {
+    closeGifPicker();
+    return;
+  }
+
+  // 4. If mobile chat view is open, return back to the contacts / chats list
+  if (document.body.classList.contains('mobile-chat-open')) {
+    backToChatsList(false);
+    return;
+  }
+
+  // 5. If state contains specific navigation or hash changed
+  if (window.location.hash && window.location.hash !== '#/' && window.location.hash !== '') {
+    handleUrlRouting();
+  }
 });
 
 // ----------------------------------------------------

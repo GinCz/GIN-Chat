@@ -1045,7 +1045,7 @@
             <img src="/favicon-v30.svg" alt="GIN-Chat Logo" style="width: 72px; height: 72px; filter: drop-shadow(0 4px 12px rgba(59, 130, 246, 0.5));">
           </div>
           <h2 style="font-weight: 800; font-size: 22px; margin-bottom: 4px;">GIN-Chat</h2>
-          <div class="badge badge-primary" style="display: inline-block; margin-bottom: 16px; padding: 4px 12px; font-size: 13px; font-weight: 700; border-radius: 20px;">Версия: v030 (0.3.0)</div>
+          <div class="badge badge-primary" style="display: inline-block; margin-bottom: 16px; padding: 4px 12px; font-size: 13px; font-weight: 700; border-radius: 20px;">Версия: v031 (0.3.1)</div>
           <p style="color: var(--text-muted); font-size: 14px; line-height: 1.5; margin-bottom: 16px;">
             Автономный защищенный мессенджер со сквозным шифрованием <strong>AES-256-GCM</strong>, WebRTC и поддержкой Web Push.
           </p>
@@ -1056,7 +1056,7 @@
             </div>
             <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.08);">
               <span style="color: var(--text-muted);">Сборка:</span>
-              <span>Release v030 • PWA & Web Push (iOS/Android/Desktop)</span>
+              <span>Release v031 • Mobile Responsive & Android Navigation (v0.3.1)</span>
             </div>
             <div style="display: flex; justify-content: space-between; padding: 6px 0;">
               <span style="color: var(--text-muted);">Шифрование:</span>
@@ -1166,8 +1166,22 @@
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js')
-          .then((reg) => console.log('GIN-Chat SW registered:', reg.scope))
+          .then((reg) => {
+            console.log('GIN-Chat SW registered:', reg.scope);
+            reg.update();
+            document.addEventListener('visibilitychange', () => {
+              if (document.visibilityState === 'visible') reg.update();
+            });
+          })
           .catch((err) => console.error('GIN-Chat SW failed:', err));
+      });
+
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!refreshing) {
+          refreshing = true;
+          window.location.reload();
+        }
       });
     }
 
