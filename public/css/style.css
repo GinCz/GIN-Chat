@@ -354,24 +354,42 @@ body {
 
 .form-group input,
 .form-group textarea,
-.form-select {
+.form-group select,
+.form-select,
+.form-control,
+select {
   width: 100%;
   padding: 11px 14px;
-  background: var(--bg-input);
-  border: 1px solid var(--border-color);
+  background: var(--bg-input, #17212b);
+  border: 1px solid var(--border-color, #10161e);
   border-radius: 10px;
-  color: var(--text-main);
+  color: var(--text-main, #f5f5f5);
   font-family: inherit;
   font-size: 14px;
   outline: none;
   transition: all 0.2s;
+  box-sizing: border-box;
 }
 
 .form-group input:focus,
 .form-group textarea:focus,
-.form-select:focus {
+.form-group select:focus,
+.form-select:focus,
+.form-control:focus,
+select:focus {
   border-color: var(--accent-color);
   box-shadow: 0 0 12px var(--accent-glow);
+}
+
+/* Explicit high-contrast dropdown option styling */
+select option,
+.form-select option,
+.form-control option,
+.form-group select option {
+  background-color: #17212b !important;
+  background: #17212b !important;
+  color: #f5f5f5 !important;
+  padding: 8px 12px;
 }
 
 .input-with-prefix {
@@ -3141,9 +3159,29 @@ body.light-theme .form-group label {
 
 body.light-theme .form-group input,
 body.light-theme .form-group textarea,
-body.light-theme .form-group select {
+body.light-theme .form-group select,
+body.light-theme .form-select,
+body.light-theme .form-control,
+body.light-theme select {
   background: #f8fafc !important;
   border: 1px solid #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+body.light-theme select:focus,
+body.light-theme .form-select:focus,
+body.light-theme .form-control:focus,
+body.light-theme .form-group select:focus {
+  background: #ffffff !important;
+  border-color: #2563eb !important;
+}
+
+body.light-theme select option,
+body.light-theme .form-select option,
+body.light-theme .form-control option,
+body.light-theme .form-group select option {
+  background-color: #ffffff !important;
+  background: #ffffff !important;
   color: #0f172a !important;
 }
 
