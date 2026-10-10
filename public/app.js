@@ -475,10 +475,36 @@ function connectSocket() {
     }
   });
 
-  socket.on('user_status', ({ userId, status }) => {
-    if (activeChat && activeChat.partner && activeChat.partner.id === userId) {
-      activeChat.partner.is_online = status === 'online';
+  socket.on('user_status', ({ userId, status, last_seen }) => {
+    const isOnline = status === 'online';
+
+    // Update activeChat partner
+    if (activeChat && activeChat.partner && activeChat.partner.id === Number(userId)) {
+      activeChat.partner.is_online = isOnline;
+      if (last_seen) activeChat.partner.last_seen = last_seen;
       updateChatHeaderSubtitle();
+
+      // If contact profile modal is currently open, live update its status
+      const detailsModal = document.getElementById('chatDetailsModal');
+      if (detailsModal && !detailsModal.classList.contains('hidden')) {
+        const statusEl = document.getElementById('directDetailsStatus');
+        if (statusEl) {
+          statusEl.innerHTML = formatUserStatus(isOnline, activeChat.partner.last_seen);
+        }
+      }
+    }
+
+    // Update allChats partner state
+    let chatUpdated = false;
+    allChats.forEach(c => {
+      if (c.type === 'direct' && c.partner && c.partner.id === Number(userId)) {
+        c.partner.is_online = isOnline;
+        if (last_seen) c.partner.last_seen = last_seen;
+        chatUpdated = true;
+      }
+    });
+    if (chatUpdated) {
+      renderChatsList();
     }
   });
 
@@ -735,14 +761,19 @@ async function selectChat(chatId) {
 
 function updateChatHeaderSubtitle() {
   const sub = document.getElementById('chatHeaderSubtitle');
-  if (!activeChat) return;
+  if (!sub || !activeChat) return;
   if (activeChat.type === 'group') {
     sub.innerText = `${activeChat.members ? activeChat.members.length : 0} участников`;
   } else {
-    if (activeChat.partner && activeChat.partner.username) {
-      sub.innerText = `@${activeChat.partner.username} • в сети`;
+    const partner = activeChat.partner || {};
+    const isOnline = partner.is_online === true;
+    const lastSeen = partner.last_seen;
+    const handle = partner.username ? `@${partner.username} • ` : '';
+
+    if (isOnline) {
+      sub.innerHTML = `${handle}<span class="status-dot online"></span> <span class="text-success" style="font-weight:600;">в сети</span>`;
     } else {
-      sub.innerText = 'в сети';
+      sub.innerHTML = `${handle}${formatUserStatus(false, lastSeen)}`;
     }
   }
 }
@@ -1010,6 +1041,41 @@ function formatTime(iso) {
   if (!iso) return '';
   const d = new Date(iso);
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function formatUserStatus(isOnline, lastSeenIso) {
+  if (isOnline) {
+    return '<span class="status-dot online"></span> <span class="text-success" style="font-weight:600;">в сети</span>';
+  }
+  if (!lastSeenIso) {
+    return '<span class="status-dot offline"></span> <span class="text-muted">не в сети</span>';
+  }
+  try {
+    const d = new Date(lastSeenIso);
+    const now = new Date();
+    const diffMs = now - d;
+    const diffMins = Math.floor(diffMs / 60000);
+    const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    if (diffMins < 1) {
+      return '<span class="status-dot offline"></span> <span class="text-muted">был(а) только что</span>';
+    }
+    if (diffMins < 60) {
+      return `<span class="status-dot offline"></span> <span class="text-muted">был(а) ${diffMins} мин. назад</span>`;
+    }
+    const isToday = d.toDateString() === now.toDateString();
+    if (isToday) {
+      return `<span class="status-dot offline"></span> <span class="text-muted">был(а) сегодня в ${timeStr}</span>`;
+    }
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (d.toDateString() === yesterday.toDateString()) {
+      return `<span class="status-dot offline"></span> <span class="text-muted">был(а) вчера в ${timeStr}</span>`;
+    }
+    return `<span class="status-dot offline"></span> <span class="text-muted">был(а) ${d.toLocaleDateString([], { day: 'numeric', month: 'short' })} в ${timeStr}</span>`;
+  } catch (e) {
+    return '<span class="status-dot offline"></span> <span class="text-muted">не в сети</span>';
+  }
 }
 
 function scrollToBottom() {
@@ -2808,9 +2874,7 @@ function openChatDetailsModal() {
 
     const statusEl = document.getElementById('directDetailsStatus');
     if (statusEl) {
-      statusEl.innerHTML = isPartnerOnline
-        ? '<span class="status-dot online"></span> <span class="text-success" style="font-weight:600;">в сети</span>'
-        : '<span class="status-dot offline"></span> <span class="text-muted">не в сети</span>';
+      statusEl.innerHTML = formatUserStatus(isPartnerOnline, partner.last_seen);
     }
 
     const infoList = document.getElementById('directProfileInfoList');

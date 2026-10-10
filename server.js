@@ -19,6 +19,13 @@ const io = new Server(server, {
   maxHttpBufferSize: 50 * 1024 * 1024 // 50MB file support
 });
 
+// Real-time online users tracking Map (userId -> Set of socket.ids)
+const onlineUsers = new Map();
+function isUserOnline(userId) {
+  const uid = Number(userId);
+  return onlineUsers.has(uid) && onlineUsers.get(uid).size > 0;
+}
+
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'gin_super_jwt_secret_chat_2026';
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
@@ -594,7 +601,11 @@ app.get('/api/admin/users', authMiddleware, requireAdmin, (req, res) => {
     FROM users
     ORDER BY CASE status WHEN 'pending' THEN 0 ELSE 1 END, id DESC
   `).all();
-  res.json({ users });
+  const enrichedUsers = users.map(u => ({
+    ...u,
+    is_online: isUserOnline(u.id)
+  }));
+  res.json({ users: enrichedUsers });
 });
 
 // Get single user details by ID
@@ -895,12 +906,18 @@ app.get('/api/chats', authMiddleware, (req, res) => {
       `).get(chat.id, userId);
 
       if (otherMember) {
-        partner = otherMember;
+        partner = {
+          ...otherMember,
+          is_online: isUserOnline(otherMember.id)
+        };
         chatName = otherMember.name;
         chatAvatar = otherMember.avatar;
       } else {
         const selfMember = db.prepare(`SELECT id, name, username, avatar, last_seen FROM users WHERE id = ?`).get(userId);
-        partner = selfMember;
+        partner = {
+          ...selfMember,
+          is_online: isUserOnline(userId)
+        };
         chatName = 'Избранное (Заметки)';
       }
     }
@@ -1072,7 +1089,10 @@ app.get('/api/chats/:id', authMiddleware, (req, res) => {
     if (otherMember) {
       enrichedChat.name = otherMember.name;
       enrichedChat.avatar = otherMember.avatar;
-      enrichedChat.partner = otherMember;
+      enrichedChat.partner = {
+        ...otherMember,
+        is_online: isUserOnline(otherMember.id)
+      };
 
       commonGroups = db.prepare(`
         SELECT c.id, c.name, c.avatar,
@@ -1088,13 +1108,18 @@ app.get('/api/chats/:id', authMiddleware, (req, res) => {
     }
   }
 
-  const members = db.prepare(`
+  const rawMembers = db.prepare(`
     SELECT u.id, u.name, u.username, u.avatar, u.last_seen, cm.role, cm.joined_at
     FROM chat_members cm
     JOIN users u ON cm.user_id = u.id
     WHERE cm.chat_id = ?
     ORDER BY CASE cm.role WHEN 'owner' THEN 1 WHEN 'admin' THEN 2 ELSE 3 END, u.name ASC
   `).all(chatId);
+
+  const members = rawMembers.map(m => ({
+    ...m,
+    is_online: isUserOnline(m.id)
+  }));
 
   let pinnedMessage = null;
   if (chat.pinned_message_id) {
@@ -1660,7 +1685,12 @@ app.get('/api/users/search', authMiddleware, (req, res) => {
     `).all(myId);
   }
 
-  res.json({ users });
+  const enrichedUsers = users.map(u => ({
+    ...u,
+    is_online: isUserOnline(u.id)
+  }));
+
+  res.json({ users: enrichedUsers });
 });
 
 // ----------------------------------------------------
@@ -1730,8 +1760,6 @@ setInterval(() => {
 // ----------------------------------------------------
 // SOCKET.IO REAL-TIME LOGIC
 // ----------------------------------------------------
-
-const onlineUsers = new Map();
 
 io.use((socket, next) => {
   const token = socket.handshake.auth.token;

@@ -4522,3 +4522,22 @@ body.light-theme .msg-select-check {
   border-color: #94a3b8;
   background: #ffffff;
 }
+
+/* ====================================================
+   STATUS DOT INDICATORS (Online / Offline)
+   ==================================================== */
+.status-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-right: 5px;
+  vertical-align: middle;
+}
+.status-dot.online {
+  background-color: #10b981;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.7);
+}
+.status-dot.offline {
+  background-color: #64748b;
+}
