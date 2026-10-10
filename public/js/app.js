@@ -317,19 +317,37 @@ function connectSocket() {
 
   socket.on('new_message', (msg) => {
     const isCurrentActiveChat = activeChat && Number(activeChat.id) === Number(msg.chat_id);
+    const isOutgoing = currentUser && Number(msg.sender_id) === Number(currentUser.id);
+
     if (isCurrentActiveChat) {
       if (!document.getElementById(`msg-${msg.id}`)) {
         appendMessageToView(msg);
         scrollToBottom();
       }
-      socket.emit('mark_read', { chatId: msg.chat_id, messageIds: [msg.id] });
+      if (!isOutgoing) {
+        socket.emit('mark_read', { chatId: msg.chat_id, messageIds: [msg.id] });
+      }
     }
-    playMessageSound();
-    loadChats();
 
-    // Show system notification if window/tab is not active or chat is not active
-    if (document.hidden || !document.hasFocus() || !isCurrentActiveChat) {
-      showLocalSystemNotification(msg);
+    // Воспроизводим звук и показываем системное уведомление ТОЛЬКО для входящих сообщений
+    if (!isOutgoing) {
+      playMessageSound();
+      if (document.hidden || !document.hasFocus() || !isCurrentActiveChat) {
+        showLocalSystemNotification(msg);
+      }
+    }
+
+    loadChats();
+  });
+
+  socket.on('messages_read', ({ chatId, messageIds }) => {
+    if (activeChat && Number(activeChat.id) === Number(chatId) && Array.isArray(messageIds)) {
+      messageIds.forEach(id => {
+        const statusEl = document.getElementById(`msg-status-${id}`);
+        if (statusEl) {
+          statusEl.innerHTML = '<i class="fa-solid fa-check-double text-primary" style="font-size: 11px;"></i>';
+        }
+      });
     }
   });
 
@@ -926,7 +944,11 @@ function appendMessageToView(msg) {
     <div class="msg-meta">
       ${msg.is_edited ? '<span class="msg-edited-badge">изм.</span>' : ''}
       <span class="msg-time">${formatTime(msg.created_at)}</span>
-      ${isOut ? '<i class="fa-solid fa-check-double text-primary" style="font-size: 11px;"></i>' : ''}
+      ${isOut ? `
+        <span class="msg-status-icon" id="msg-status-${msg.id}">
+          <i class="fa-solid ${msg.is_read ? 'fa-check-double text-primary' : 'fa-check text-muted'}" style="font-size: 11px;"></i>
+        </span>
+      ` : ''}
     </div>
     <div class="msg-reactions" id="reactions-${msg.id}"></div>
   `;

@@ -1,7 +1,7 @@
 {
   "name": "GIN-Chat",
   "short_name": "GIN-Chat",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "gcm_sender_id": "103953800507",
   "description": "GIN-Chat - Modern AI Chat Application by Vladimir Bulantsev (GinCz)",
   "start_url": "/?v=035",

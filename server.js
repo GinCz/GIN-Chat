@@ -1528,6 +1528,7 @@ app.get('/api/chats/:id/messages', authMiddleware, (req, res) => {
 
   const messageIds = rawMessages.map(m => m.id);
   let reactionsMap = {};
+  let readSet = new Set();
   if (messageIds.length > 0) {
     const reactions = db.prepare(`
       SELECT r.message_id, r.emoji, r.user_id, u.name as user_name
@@ -1540,6 +1541,16 @@ app.get('/api/chats/:id/messages', authMiddleware, (req, res) => {
       if (!reactionsMap[r.message_id]) reactionsMap[r.message_id] = {};
       if (!reactionsMap[r.message_id][r.emoji]) reactionsMap[r.message_id][r.emoji] = [];
       reactionsMap[r.message_id][r.emoji].push({ userId: r.user_id, name: r.user_name });
+    }
+
+    const reads = db.prepare(`
+      SELECT DISTINCT mr.message_id
+      FROM message_reads mr
+      JOIN messages m ON mr.message_id = m.id
+      WHERE mr.message_id IN (${messageIds.join(',')}) AND mr.user_id != m.sender_id
+    `).all();
+    for (const rd of reads) {
+      readSet.add(rd.message_id);
     }
   }
 
@@ -1567,6 +1578,7 @@ app.get('/api/chats/:id/messages', authMiddleware, (req, res) => {
       } : null,
       reactions: reactionsMap[m.id] || {},
       is_edited: !!m.is_edited,
+      is_read: readSet.has(m.id),
       created_at: m.created_at
     };
   });
