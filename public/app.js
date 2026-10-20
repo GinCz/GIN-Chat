@@ -431,13 +431,49 @@ function connectSocket() {
   });
 
   socket.on('message_edited', ({ chatId, messageId, text }) => {
-    if (activeChat && activeChat.id === chatId) {
+    if (activeChat && Number(activeChat.id) === Number(chatId)) {
       const msgRow = document.getElementById(`msg-${messageId}`);
       if (msgRow) {
-        const textEl = msgRow.querySelector('.msg-text-content');
+        const clean = (text || '').trim();
+        let textEl = msgRow.querySelector('.msg-text-content');
         if (textEl) {
-          textEl.innerHTML = formatMessageText(text);
+          if (clean) {
+            textEl.innerHTML = formatMessageText(clean);
+          } else {
+            textEl.remove();
+          }
+        } else if (clean) {
+          const bubble = msgRow.querySelector('.msg-bubble');
+          const meta = msgRow.querySelector('.msg-meta');
+          if (bubble) {
+            textEl = document.createElement('div');
+            textEl.className = 'msg-text-content msg-file-caption';
+            textEl.innerHTML = formatMessageText(clean);
+            if (meta) {
+              bubble.insertBefore(textEl, meta);
+            } else {
+              bubble.appendChild(textEl);
+            }
+          }
         }
+
+        // Update edit button on file card if present
+        const fileEditBtn = msgRow.querySelector('.btn-file-edit');
+        if (fileEditBtn) {
+          const escaped = escapeForJs(clean);
+          fileEditBtn.setAttribute('onclick', `startEditMessage(${messageId}, '${escaped}')`);
+          fileEditBtn.setAttribute('title', clean ? 'Изменить подпись к файлу' : 'Добавить текстовую подпись к файлу');
+          fileEditBtn.innerHTML = `<i class="fa-solid fa-pencil"></i> ${clean ? 'Изменить' : 'Подпись'}`;
+        }
+
+        // Update hover action bar edit button
+        const actEditBtn = msgRow.querySelector('.msg-act-btn-edit');
+        if (actEditBtn) {
+          const escaped = escapeForJs(clean);
+          actEditBtn.setAttribute('onclick', `startEditMessage(${messageId}, '${escaped}')`);
+          actEditBtn.setAttribute('title', clean ? 'Изменить подпись к файлу' : 'Добавить подпись к файлу');
+        }
+
         let editedBadge = msgRow.querySelector('.msg-edited-badge');
         if (!editedBadge) {
           const meta = msgRow.querySelector('.msg-meta');
@@ -936,7 +972,7 @@ function appendMessageToView(msg) {
       <button class="msg-act-btn" onclick="toggleSelectMessage(${msg.id}, event)" title="Выбрать"><i class="fa-regular fa-square-check"></i></button>
       <button class="msg-act-btn forward" onclick="openForwardModal(${msg.id})" title="Переслать"><i class="fa-solid fa-share"></i></button>
       <button class="msg-act-btn" onclick="setReplyMessageById(${msg.id})" title="Ответить"><i class="fa-solid fa-reply"></i></button>
-      ${(canModify && msg.type === 'text') ? `<button class="msg-act-btn" onclick="startEditMessage(${msg.id}, '${escapeForJs(msg.text)}')" title="Редактировать"><i class="fa-solid fa-pencil"></i></button>` : ''}
+      ${canModify ? `<button class="msg-act-btn msg-act-btn-edit" onclick="startEditMessage(${msg.id}, '${escapeForJs(msg.text || '')}')" title="${msg.type === 'file' ? (msg.text ? 'Изменить подпись к файлу' : 'Добавить подпись к файлу') : 'Редактировать'}"><i class="fa-solid fa-pencil"></i></button>` : ''}
       ${canModify ? `<button class="msg-act-btn delete" onclick="deleteMessageById(${msg.id})" title="Удалить"><i class="fa-solid fa-trash"></i></button>` : ''}
     </div>
   `;
@@ -962,7 +998,10 @@ function appendMessageToView(msg) {
   if (msg.type === 'text') {
     contentHtml += `<div class="msg-text-content">${formatMessageText(msg.text)}</div>`;
   } else if (msg.type === 'image') {
-    contentHtml += `<img src="${msg.file_url}" class="msg-media-img" onclick="openLightbox('${msg.file_url}')" alt="Photo">`;
+    contentHtml += `
+      <img src="${escapeHtml(msg.file_url)}" class="msg-media-img" onclick="openLightbox('${escapeHtml(msg.file_url)}')" alt="Photo">
+      ${msg.text ? `<div class="msg-text-content msg-file-caption">${formatMessageText(msg.text)}</div>` : ''}
+    `;
   } else if (msg.type === 'gif') {
     contentHtml += `
       <div class="msg-gif-wrapper">
@@ -1017,6 +1056,7 @@ function appendMessageToView(msg) {
     const fileMeta = getFileInfo(msg.file_name);
     const safeUrl = escapeHtml(msg.file_url || '');
     const safeName = escapeHtml(msg.file_name || 'Файл');
+    const safeText = msg.text ? escapeForJs(msg.text) : '';
     contentHtml += `
       <div class="msg-file-card">
         <div class="msg-file-header">
@@ -1039,8 +1079,14 @@ function appendMessageToView(msg) {
           <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="btn-file-open" title="Открыть файл">
             <i class="fa-solid fa-arrow-up-right-from-square"></i> Открыть
           </a>
+          ${canModify ? `
+            <button type="button" class="btn-file-edit" onclick="startEditMessage(${msg.id}, '${safeText}')" title="${msg.text ? 'Изменить подпись к файлу' : 'Добавить текстовую подпись к файлу'}">
+              <i class="fa-solid fa-pencil"></i> ${msg.text ? 'Изменить' : 'Подпись'}
+            </button>
+          ` : ''}
         </div>
       </div>
+      ${msg.text ? `<div class="msg-text-content msg-file-caption">${formatMessageText(msg.text)}</div>` : ''}
     `;
   }
 
@@ -1279,7 +1325,8 @@ function handleTypingEvent() {
 function sendMessage() {
   const input = document.getElementById('messageInput');
   const text = input.value.trim();
-  if (!text || !activeChat || !socket) return;
+  if (!activeChat || !socket) return;
+  if (!text && !editingMessage) return;
 
   if (editingMessage) {
     // Edit existing message
@@ -1293,6 +1340,8 @@ function sendMessage() {
     cancelReplyOrEdit();
     input.value = '';
     input.style.height = 'auto';
+    document.getElementById('sendBtn').classList.add('hidden');
+    document.getElementById('voiceBtn').classList.remove('hidden');
     return;
   }
 
@@ -1324,16 +1373,16 @@ function sendMessage() {
 }
 
 function startEditMessage(messageId, currentText) {
-  editingMessage = { id: messageId, text: currentText };
+  editingMessage = { id: messageId, text: currentText || '' };
   replyMessage = null;
 
   document.getElementById('replyPreviewBar').classList.remove('hidden');
   document.getElementById('replyPreviewIcon').className = 'fa-solid fa-pencil text-warning';
-  document.getElementById('replyToName').innerText = 'Редактирование сообщения';
-  document.getElementById('replyToText').innerText = currentText;
+  document.getElementById('replyToName').innerText = currentText ? 'Редактирование подписи / текста' : 'Добавление подписи к файлу';
+  document.getElementById('replyToText').innerText = currentText || 'Введите подпись к файлу...';
 
   const input = document.getElementById('messageInput');
-  input.value = currentText;
+  input.value = currentText || '';
   input.focus();
   input.dispatchEvent(new Event('input'));
 }
@@ -4174,7 +4223,7 @@ function openAboutModal() {
 }
 
 // ====================================================
-// FULLSCREEN IMAGE & SCREENSHOT LIGHTBOX / VIEWER (v0.5.1)
+// FULLSCREEN IMAGE & SCREENSHOT LIGHTBOX / VIEWER (v0.5.2)
 // ====================================================
 let lbScale = 1;
 let lbTranslateX = 0;
