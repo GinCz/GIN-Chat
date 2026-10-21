@@ -1309,8 +1309,43 @@ body.light-theme .chat-drop-content .drop-title {
 .msg-row.out .msg-action-bar { right: 8px; }
 .msg-row.in .msg-action-bar { left: 8px; }
 
-.msg-row:hover .msg-action-bar {
+.msg-row:hover .msg-action-bar,
+.msg-row.show-actions .msg-action-bar {
   display: flex;
+}
+
+.msg-meta-copy-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 11px;
+  padding: 2px 4px;
+  margin-right: 2px;
+  cursor: pointer;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  line-height: 1;
+}
+
+.msg-meta-copy-btn:hover {
+  color: #38bdf8;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.msg-meta-copy-btn:active {
+  transform: scale(0.88);
+}
+
+.msg-row.out .msg-meta-copy-btn {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.msg-row.out .msg-meta-copy-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .msg-act-btn {

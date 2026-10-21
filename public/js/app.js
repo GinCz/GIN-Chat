@@ -1045,6 +1045,7 @@ function appendMessageToView(msg) {
       <button class="msg-act-btn" onclick="toggleSelectMessage(${msg.id}, event)" title="Выбрать"><i class="fa-regular fa-square-check"></i></button>
       <button class="msg-act-btn forward" onclick="openForwardModal(${msg.id})" title="Переслать"><i class="fa-solid fa-share"></i></button>
       <button class="msg-act-btn" onclick="setReplyMessageById(${msg.id})" title="Ответить"><i class="fa-solid fa-reply"></i></button>
+      ${(msg.text && msg.text.trim()) ? `<button class="msg-act-btn msg-act-btn-copy" onclick="copyMessageTextById(${msg.id}, event)" title="Скопировать текст"><i class="fa-regular fa-copy"></i></button>` : ''}
       ${canModify ? `<button class="msg-act-btn msg-act-btn-edit" onclick="startEditMessage(${msg.id}, '${escapeForJs(msg.text || '')}')" title="${msg.type === 'file' ? (msg.text ? 'Изменить подпись к файлу' : 'Добавить подпись к файлу') : 'Редактировать'}"><i class="fa-solid fa-pencil"></i></button>` : ''}
       ${canModify ? `<button class="msg-act-btn delete" onclick="deleteMessageById(${msg.id})" title="Удалить"><i class="fa-solid fa-trash"></i></button>` : ''}
     </div>
@@ -1165,6 +1166,11 @@ function appendMessageToView(msg) {
 
   contentHtml += `
     <div class="msg-meta">
+      ${(msg.text && msg.text.trim()) ? `
+        <button type="button" class="msg-meta-copy-btn" onclick="copyMessageTextById(${msg.id}, event)" title="Скопировать текст">
+          <i class="fa-regular fa-copy"></i>
+        </button>
+      ` : ''}
       ${msg.is_edited ? '<span class="msg-edited-badge">изм.</span>' : ''}
       <span class="msg-time">${formatTime(msg.created_at)}</span>
       ${isOut ? `
@@ -1207,6 +1213,13 @@ function appendMessageToView(msg) {
       if (e.target.closest('button, a, input, audio, video, .msg-action-bar, .audio-seek-track')) return;
       e.preventDefault();
       toggleSelectMessage(msg.id, e);
+      return;
+    }
+    // On touch devices: toggle action bar on bubble tap
+    if (('ontouchstart' in window || window.innerWidth <= 768) && !e.target.closest('button, a, input, audio, video, .msg-action-bar, .audio-seek-track')) {
+      const isShown = row.classList.contains('show-actions');
+      document.querySelectorAll('.msg-row.show-actions').forEach(r => r.classList.remove('show-actions'));
+      if (!isShown) row.classList.add('show-actions');
     }
   });
 
@@ -1501,6 +1514,55 @@ function setReplyMessageById(messageId) {
   const name = nameEl ? nameEl.innerText : 'Собеседник';
   const text = textEl ? textEl.innerText : 'Вложение';
   setReplyMessage({ id: messageId, sender: { name }, type: 'text', text });
+}
+
+async function copyMessageTextById(messageId, event) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  try {
+    const row = document.getElementById(`msg-${messageId}`);
+    let textToCopy = '';
+    if (row) {
+      const textEl = row.querySelector('.msg-text-content');
+      if (textEl) {
+        textToCopy = textEl.innerText.trim();
+      }
+    }
+    if (!textToCopy) {
+      showToast('Нет текста для копирования');
+      return;
+    }
+
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(textToCopy);
+    } else {
+      const textArea = document.createElement('textarea');
+      textArea.value = textToCopy;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999999px';
+      textArea.style.top = '-999999px';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      document.execCommand('copy');
+      textArea.remove();
+    }
+
+    // Visual feedback on the button that was clicked
+    const targetBtn = event?.currentTarget || row?.querySelector('.msg-meta-copy-btn, .msg-act-btn-copy');
+    if (targetBtn) {
+      const origHtml = targetBtn.innerHTML;
+      targetBtn.innerHTML = '<i class="fa-solid fa-check text-success"></i>';
+      setTimeout(() => { targetBtn.innerHTML = origHtml; }, 1500);
+    }
+
+    showToast('Текст скопирован в буфер обмена');
+  } catch (err) {
+    console.error('Copy text error:', err);
+    showToast('Не удалось скопировать текст');
+  }
 }
 
 function cancelReplyOrEdit() {
