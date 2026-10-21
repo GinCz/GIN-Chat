@@ -118,6 +118,20 @@ async function checkIpBinding(isManual = false) {
   return false;
 }
 
+// ----------------------------------------------------
+// F4 SHORTCUT HANDLER (GIN-Voice Browser Auto-Paste Fix)
+// ----------------------------------------------------
+// Prevent F4 from focusing browser Omnibox / address bar so GIN-Voice auto-paste works smoothly in web version
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'F4' || e.keyCode === 115) {
+    e.preventDefault();
+    const msgInput = document.getElementById('messageInput');
+    if (msgInput && activeChat && document.activeElement !== msgInput) {
+      msgInput.focus();
+    }
+  }
+}, true);
+
 document.addEventListener('DOMContentLoaded', async () => {
   initTheme();
   initViewMode();
@@ -404,8 +418,10 @@ function connectSocket() {
         scrollToBottom();
       }
       if (!isOutgoing) {
-        socket.emit('mark_read', { chatId: msg.chat_id, messageIds: [msg.id] });
+        socket.emit('mark_read', { chatId: Number(msg.chat_id), messageIds: [msg.id] });
       }
+      const c = allChats.find(x => Number(x.id) === Number(msg.chat_id));
+      if (c) c.unreadCount = 0;
     }
 
     // Воспроизводим звук и показываем системное уведомление ТОЛЬКО для входящих сообщений
@@ -763,6 +779,10 @@ async function loadChats() {
     }
     const data = await res.json();
     allChats = data.chats || [];
+    if (activeChat) {
+      const cur = allChats.find(c => Number(c.id) === Number(activeChat.id));
+      if (cur) cur.unreadCount = 0;
+    }
     renderChatsList();
   } catch (err) {
     console.error('Error loading chats:', err);
@@ -794,7 +814,10 @@ function renderChatsList() {
   }
 
   container.innerHTML = filtered.map(chat => {
-    const isActive = activeChat && activeChat.id === chat.id;
+    const isActive = activeChat && Number(activeChat.id) === Number(chat.id);
+    if (isActive) {
+      chat.unreadCount = 0;
+    }
     const timeStr = chat.lastMessage ? formatTime(chat.lastMessage.created_at) : '';
     const isDirect = chat.type === 'direct';
     let preview = 'Нет сообщений';
@@ -851,6 +874,12 @@ async function selectChat(chatId) {
       pinnedMessage: data.pinnedMessage,
       commonGroups: data.commonGroups || []
     };
+
+    // Immediately reset unread counter for this chat locally
+    const targetChatInList = allChats.find(c => Number(c.id) === Number(chatId));
+    if (targetChatInList) {
+      targetChatInList.unreadCount = 0;
+    }
 
     if (socket) {
       socket.emit('join_chat', { chatId });
@@ -928,6 +957,36 @@ function updateChatHeaderSubtitle() {
   }
 }
 
+// ----------------------------------------------------
+// REAL-TIME MESSAGE VISIBILITY & READ STATUS OBSERVER
+// ----------------------------------------------------
+let messageVisibilityObserver = null;
+function initMessageVisibilityObserver() {
+  if (typeof IntersectionObserver === 'undefined') return;
+  if (messageVisibilityObserver) {
+    messageVisibilityObserver.disconnect();
+  }
+  messageVisibilityObserver = new IntersectionObserver((entries) => {
+    const unreadSeenIds = [];
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const row = entry.target;
+        const msgId = Number(row.dataset.msgId);
+        const senderId = Number(row.dataset.senderId);
+        const isRead = row.dataset.isRead === 'true';
+        if (msgId && senderId !== (currentUser ? currentUser.id : 0) && !isRead) {
+          row.dataset.isRead = 'true';
+          unreadSeenIds.push(msgId);
+          messageVisibilityObserver.unobserve(row);
+        }
+      }
+    });
+    if (unreadSeenIds.length > 0 && activeChat && socket) {
+      socket.emit('mark_read', { chatId: Number(activeChat.id), messageIds: unreadSeenIds });
+    }
+  }, { threshold: 0.2 });
+}
+
 async function loadMessages(chatId) {
   const container = document.getElementById('messagesScroll');
   container.innerHTML = '<div class="text-center text-muted" style="padding: 20px;"><i class="fa-solid fa-spinner fa-spin"></i> Загрузка сообщений...</div>';
@@ -942,8 +1001,19 @@ async function loadMessages(chatId) {
       return;
     }
     container.innerHTML = '';
+    initMessageVisibilityObserver();
     (data.messages || []).forEach(msg => appendMessageToView(msg));
     scrollToBottom();
+
+    // Notify sender over socket that incoming messages in this chat have been opened and read
+    if (socket && data.messages && data.messages.length > 0) {
+      const incomingUnreadIds = data.messages
+        .filter(m => Number(m.sender_id) !== Number(currentUser ? currentUser.id : 0) && !m.is_read)
+        .map(m => m.id);
+      if (incomingUnreadIds.length > 0) {
+        socket.emit('mark_read', { chatId: Number(chatId), messageIds: incomingUnreadIds });
+      }
+    }
   } catch (err) {
     container.innerHTML = '<div class="text-center text-danger" style="padding: 20px;">Ошибка загрузки сообщений</div>';
   }
@@ -951,13 +1021,16 @@ async function loadMessages(chatId) {
 
 function appendMessageToView(msg) {
   const container = document.getElementById('messagesScroll');
-  const isOut = msg.sender_id === currentUser.id;
+  const isOut = currentUser && Number(msg.sender_id) === Number(currentUser.id);
   const isAdmin = currentUser && (currentUser.role === 'superadmin' || currentUser.role === 'admin');
   const canModify = isOut || isAdmin;
 
   const row = document.createElement('div');
   row.className = `msg-row ${isOut ? 'out' : 'in'}`;
   row.id = `msg-${msg.id}`;
+  row.dataset.msgId = msg.id;
+  row.dataset.senderId = msg.sender_id;
+  row.dataset.isRead = msg.is_read ? 'true' : 'false';
 
   let contentHtml = '';
 
@@ -1147,6 +1220,10 @@ function appendMessageToView(msg) {
 
   container.appendChild(row);
 
+  if (!isOut && !msg.is_read && messageVisibilityObserver) {
+    messageVisibilityObserver.observe(row);
+  }
+
   renderReactions(msg.id, msg.reactions);
 }
 
@@ -1284,6 +1361,7 @@ function backToChatsList(triggerHistory = true) {
     history.pushState({ view: 'list' }, '', '#/');
   }
   renderChatsList();
+  loadChats();
 }
 
 // ----------------------------------------------------
