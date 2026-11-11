@@ -2,7 +2,7 @@
 
 # 💬 GIN-Chat
 
-### Автономная Защищенная Коммуникационная Платформа (E2EE WebRTC & Zero-Knowledge)
+### Autonomous Secure Communications Platform (E2EE WebRTC & Zero-Knowledge)
 
 <br/>
 
@@ -14,55 +14,43 @@
 
 <br/>
 
-**GIN-Chat** — это автономная, приватная коммуникационная платформа с бескомпромиссным уровнем безопасности, сквозным шифрованием по модели *Zero-Knowledge*, защищенными WebRTC аудио/видеозвонками и чистым интерфейсом в стиле современных мессенджеров.
+**GIN-Chat** is an autonomous, private communication platform engineered with uncompromising security, end-to-end encryption under a *Zero-Knowledge* architecture, protected WebRTC audio/video calling, and a modern, distraction-free messaging interface.
 
 </div>
 
 ---
 
 > [!IMPORTANT]
-> **Политика конфиденциальности исходного кода (Proprietary Code Policy):**  
-> Все полные исходные коды (серверный движок Node.js/SQLite, криптографические алгоритмы E2EE, PWA-клиент, медиа-компрессоры и нативные мобильные сборки) являются закрытой интеллектуальной собственностью и надежно хранятся в защищенном приватном хранилище автора ([Secret_Privat ↗](https://github.com/GinCz/Secret_Privat)).  
-> Данный публичный репозиторий выступает исключительно в качестве **архитектурной витрины (Showcase)**, технической спецификации протоколов безопасности и эталона системной интеграции.
+> **Proprietary Source Code Policy:**  
+> Complete implementation sources (Node.js/SQLite backend engine, cryptographic E2EE modules, PWA client, media compression routines, and native mobile builds) are proprietary intellectual property securely maintained in the author's private repository ([Secret_Privat ↗](https://github.com/GinCz/Secret_Privat)).  
+> This public repository serves exclusively as an **Architectural Showcase**, protocol security specification, and enterprise deployment blueprint.
 
 ---
 
 <br/>
 
-## 🌟 Ключевые Преимущества и Архитектура Безопасности
+## 🌟 Architectural Highlights & Security Framework
 
 <br/>
 
-### 🛡️ 1. Сквозное E2EE-Шифрование (Zero-Knowledge Architecture)
-* 🔐 **Криптография на клиенте:** Все текстовые сообщения и отправляемые файлы шифруются непосредственно на конечном устройстве пользователя (в браузере или приложении) с помощью стандарта **AES-256-GCM** через нативный **Web Crypto API**.
-* 🚫 **Сервер ничего не знает:** Сервер выступает исключительно в роли «слепого почтальона» для зашифрованных бинарных пакетов. Даже при полном физическом доступе к серверу или дампу базы данных прочитать переписку математически невозможно — приватные ключи генерируются и хранятся только в памяти устройств собеседников.
-* 🔒 **Защита персональных данных:** Номера телефонов, адреса электронной почты и системные идентификаторы скрыты от всех обычных участников диалогов.
+### 🛡️ 1. End-to-End Encryption (Zero-Knowledge Architecture)
+* 🔐 **Client-Side Cryptography:** All text messages and media attachments are encrypted directly on the client endpoint (browser or application) using **AES-256-GCM** via the native **Web Crypto API**.
+* 🚫 **Blind Server Relay:** The relay server operates purely as a blind packet router. Even with full physical root access or raw database dumps, decrypting message payloads is mathematically impossible — encryption keys are generated and stored exclusively in client device memory.
+* 🔒 **Data Privacy:** Phone numbers, email addresses, and underlying system telemetry are strictly shielded from chat participants.
 
 <br/>
 
-### 📞 2. Защищенные Голосовые и Видеозвонки (WebRTC)
-* 🎙️ **Прямая P2P-связь:** Аудио- и видеоразговоры передаются напрямую между устройствами собеседников без промежуточного сохранения на сервере.
-* 🛡️ **Криптографические протоколы DTLS 1.3 и SRTP:** Медиапотоки шифруются аппаратными алгоритмами защиты в режиме реального времени, исключая прослушивание, перехват или запись разговоров операторами связи.
-* ⚡ **Высокое качество и адаптивный битрейт:** Автоматическая адаптация битрейта под текущую скорость интернет-соединения, кристально чистый звук и HD-видео.
+### 📞 2. Protected Audio & Video Calls (WebRTC)
+* 🎙️ **Direct P2P Media Streams:** Audio and video streams are exchanged directly peer-to-peer between client endpoints without intermediate server recording or transcoding.
+* 🛡️ **Hardware DTLS 1.3 & SRTP Protocols:** Real-time media feeds are secured using hardware cryptographic acceleration, preventing eavesdropping, man-in-the-middle attacks, or telecom packet sniffing.
+* ⚡ **Adaptive Dynamic Bitrate:** Automatically scales resolution and packet rates to match active network throughput, delivering HD video and crisp Opus audio.
 
 <br/>
 
-### 🌍 3. Автономный Выделенный Сервер без Блокировок
-* 🚀 **Прямой выделенный канал:** Чат работает на автономном изолированном сервере с прямым DNS-маршрутом (без использования сторонних прокси-сетей и блокируемых CDN).
-* 🌐 **100% Доступность 24/7:** Мгновенное открытие и стабильная работа из **любой точки мира** без необходимости использовать VPN.
-* ⚡ **Высокая производительность:** Асинхронная архитектура на базе Node.js, SQLite с журналом опережающей записи (WAL) и Nginx с оптимизацией HTTP/2.
-
-<br/>
-
----
-
-<br/>
-
-## 📱 Мультиплатформенный Доступ (PWA и Native Android)
-
-* 🌐 **Мгновенный вход через любой браузер:** Google Chrome, Safari, Mozilla Firefox, Microsoft Edge, Yandex Browser.
-* 📲 **Установка в 1 клик как PWA-приложение:** Поддержка нативного добавления на домашний экран Windows, Android, macOS и iOS с поддержкой офлайн-кэширования интерфейса и фоновых уведомлений.
-* 🎬 **Связка с медиа-экосистемой:** Полная интеграция с нативными Android-приложениями линейки GinCz ([Android APK Suite ↗](https://github.com/GinCz/Android)).
+### 🌍 3. Autonomous Dedicated Infrastructure
+* 🚀 **Dedicated Direct Route:** Deployed on isolated high-performance server nodes with direct DNS routing (bypassing commercial proxy networks and throttled CDNs).
+* 🌐 **24/7 Global Availability:** Fast connection initiation and rock-solid availability worldwide without requiring auxiliary VPN tunnels.
+* ⚡ **High-Throughput Concurrency:** Asynchronous Node.js event architecture paired with SQLite Write-Ahead Logging (WAL) and HTTP/2 Nginx reverse proxying.
 
 <br/>
 
@@ -70,16 +58,28 @@
 
 <br/>
 
-## ⚙️ Сводная Спецификация Функций
+## 📱 Cross-Platform Accessibility (PWA & Native Android)
 
-| Модуль | Возможности и Технологический Стек |
+* 🌐 **Universal Browser Support:** Google Chrome, Safari, Mozilla Firefox, Microsoft Edge, and modern Chromium engines.
+* 📲 **1-Click PWA Installation:** Native Home Screen installation on Windows, Android, macOS, and iOS with service-worker offline interface caching and push notifications.
+* 🎬 **Ecosystem Interoperability:** Seamless integration across the GinCz Android TV and Smart TV application suite ([Android Suite ↗](https://github.com/GinCz/Android)).
+
+<br/>
+
+---
+
+<br/>
+
+## ⚙️ Feature Matrix & Technology Stack
+
+| Module | Core Capabilities & Technology Stack |
 | :--- | :--- |
-| 💬 **Личные диалоги и комнаты** | E2EE переписка, автоудаление сообщений по таймеру (Burn on Read), статус доставки и прочтения. |
-| 📞 **WebRTC Звонки** | Защищенный DTLS/SRTP peer-to-peer аудио/видео обмен, демонстрация экрана (Screen Sharing). |
-| 📎 **Обмен медиафайлами** | Клиентское шифрование фото, видео, голосовых заметок и документов до 50 МБ. |
-| 🎨 **Стикеры и реакции** | Нативные 3D-эмодзи, авторские наборы стикеров и реакции на сообщения. |
-| 👥 **Групповые каналы** | Закрытые групповые чаты с разграничением прав участников и модерацией. |
-| 👑 **Центр Управления** | Изолированная панель администратора: аудит сессий, одобрение пользователей, управление квотами. |
+| 💬 **Private Dialogs & Rooms** | E2EE messaging, auto-burn timers (Burn-on-Read), delivery and read receipts. |
+| 📞 **WebRTC Calling** | Protected DTLS/SRTP peer-to-peer audio/video streaming, high-framerate Screen Sharing. |
+| 📎 **Encrypted Media Sharing** | Client-side encrypted delivery for photos, videos, voice memos, and documents up to 50 MB. |
+| 🎨 **Stickers & Reactions** | Native 3D emoji glyphs, custom sticker sets, and message reactions. |
+| 👥 **Group Channels** | Private team channels with role-based access control and moderation controls. |
+| 👑 **Administration Center** | Isolated admin console: active session auditing, user access authorization, and quota management. |
 
 <br/>
 
@@ -87,9 +87,9 @@
 
 <br/>
 
-## 🌐 Архитектура Развертывания Nginx Reverse Proxy (Эталонный BluePrint)
+## 🌐 Nginx Reverse Proxy Deployment Blueprint
 
-Ниже представлена эталонная конфигурация защищенного периметра Nginx для обслуживания экземпляра GIN-Chat с поддержкой WebSocket (`WSS`) и HTTP/2:
+Below is the hardened reference Nginx configuration for hosting GIN-Chat with native WebSocket (`WSS`) and HTTP/2:
 
 ```nginx
 server {
@@ -139,11 +139,5 @@ server {
 <a href="https://github.com/GinCz" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/GitHub-181717?style=flat&logo=github&logoColor=white" alt="GitHub" /></a>
 &nbsp;&nbsp;<b>|||</b>&nbsp;&nbsp;
 <a href="https://www.linkedin.com/in/gincz/" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/LinkedIn-0A66C2?style=flat&logo=linkedin&logoColor=white" alt="LinkedIn" /></a>
-&nbsp;&nbsp;<b>|||</b>&nbsp;&nbsp;
-<a href="mailto:gin@volny.cz" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/Email-gin%40volny.cz-blue?style=flat&logo=mail.ru&logoColor=white" alt="Email" /></a>
-
-<br/><br/>
-
-<sub>GIN-Chat &copy; 2026. Vladimir Bulantsev & Anti-Gravity AI · v.2026.10.22</sub>
 
 </div>
